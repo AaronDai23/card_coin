@@ -1,0 +1,66 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter run --machine --start-paused -d WGQODUTWKJHUIVOF --devtools-server-address http://127.0.0.1:9100/ --target /Users/daipeiqiong/Documents/work/jianzhi/app/demo/card_coin/lib/main_google.dart --flavor card_coin_google
+
+## exception
+
+HttpException: HttpException: Connection closed before full header was received, uri = http://127.0.0.1:59044/Hz5BzgyQVXQ=/ws
+
+```
+```
+
+## flutter doctor
+
+```
+[✓] Flutter (Channel stable, 3.13.2, on macOS 14.7 23H124 darwin-x64, locale zh-Hans-CN)
+    • Flutter version 3.13.2 on channel stable at /Users/daipeiqiong/flutter
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision ff5b5b5fa6 (1 year, 11 months ago), 2023-08-24 08:12:28 -0500
+    • Engine revision b20183e040
+    • Dart version 3.1.0
+    • DevTools version 2.25.0
+    • Pub download mirror https://pub.flutter-io.cn
+    • Flutter download mirror https://storage.flutter-io.cn
+
+[✓] Android toolchain - develop for Android devices (Android SDK version 33.0.1)
+    • Android SDK at /Users/daipeiqiong/Library/Android/sdk
+    • Platform android-34, build-tools 33.0.1
+    • Java binary at: /Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java
+    • Java version OpenJDK Runtime Environment (build 17.0.6+0-17.0.6b829.9-10027231)
+    • All Android licenses accepted.
+
+[✓] Xcode - develop for iOS and macOS (Xcode 15.0.1)
+    • Xcode at /Applications/Xcode.app/Contents/Developer
+    • Build 15A507
+    • CocoaPods version 1.15.2
+
+[✓] Chrome - develop for the web
+    • Chrome at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+[✓] Android Studio (version 2022.3)
+    • Android Studio at /Applications/Android Studio.app/Contents
+    • Flutter plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/9212-flutter
+    • Dart plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/6351-dart
+    • Java version OpenJDK Runtime Environment (build 17.0.6+0-17.0.6b829.9-10027231)
+
+[✓] VS Code (version 1.101.0)
+    • VS Code at /Applications/Visual Studio Code.app/Contents
+    • Flutter extension version 3.114.0
+
+[✓] Connected device (3 available)
+    • PDSM00 (mobile) • WGQODUTWKJHUIVOF • android-arm64  • Android 13 (API 33)
+    • macOS (desktop) • macos            • darwin-x64     • macOS 14.7 23H124 darwin-x64
+    • Chrome (web)    • chrome           • web-javascript • Google Chrome 138.0.7204.101
+    ! Error: Browsing on the local area network for 戴培琼(平安科技云技术服务团队前端应用开发组)的iPhone. Ensure the device is unlocked and attached with a cable or associated with the same local area network as this Mac.
+      The device must be opted into Developer Mode to connect wirelessly. (code -27)
+
+[✓] Network resources
+    • All expected network resources are available.
+
+• No issues found!
+```

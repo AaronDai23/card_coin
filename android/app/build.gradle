@@ -1,0 +1,206 @@
+plugins {
+    id "com.android.application"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "org.jetbrains.kotlin.android"
+    id "com.squareup.wire"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace "com.cardcoin.card_coin"
+    compileSdkVersion 36
+    buildToolsVersion "34.0.0"
+    ndkVersion flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+
+    sourceSets {
+        main.java.srcDirs += [
+            'src/main/kotlin',
+            '../../../../chipcore_sdk/chipcore_sdk/android/app/src/main/kotlin'
+        ]
+        main.jniLibs.srcDirs = ["src/main/libs"]
+    }
+    lintOptions {
+        // 如打包出现Failed to transform libs.jar to match attributes
+        checkReleaseBuilds false
+    }
+
+    defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId "com.cardcoin.card_coin"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
+        multiDexEnabled true
+        minSdkVersion 24
+        targetSdkVersion 35
+
+        versionCode 280
+        versionName '2.1.7'
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
+            //, 'x86', 'armeabi-v7a', 'x86_64', 'arm64-v8a’
+        }
+    }
+
+    packagingOptions {
+        jniLibs.useLegacyPackaging = false
+        exclude 'lib/x86_64/darwin/libscrypt.dylib'
+    }
+
+    flavorDimensions "app"
+    productFlavors {
+        card_coin {
+            dimension "app"
+            versionCode 58
+     
+        }
+
+        card_coin_pro {
+            dimension "app"
+            versionCode 58
+            applicationId "com.cardcoin.card_coin_pro"
+
+        }
+
+        card_coin_google {
+            dimension "app"
+            applicationId "com.cardcoin.bestwish"
+
+        }
+
+        best_wish {
+            dimension "app"
+            applicationId "com.cardcoin.bestwish"
+
+        }
+
+    }
+
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+            storePassword keystoreProperties['storePassword']
+        }
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            minifyEnabled true //删除无用代码
+            shrinkResources true //删除无用资源
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    buildFeatures{
+        dataBinding = true
+        buildConfig = true
+        // for view binding :
+        // viewBinding = true
+    }
+    lint {
+        disable 'InvalidPackage'
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    // blockchain 模块已移除（源码未实际使用）
+//    implementation 'com.tangem.tangem-sdk-kotlin:core:develop-278'
+//    implementation 'com.tangem.tangem-sdk-kotlin:android:develop-278'
+//    implementation project(':tangem-sdk-android')
+//    implementation project(':tangem-sdk-core')
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'com.google.code.gson:gson:2.8.6'
+    implementation 'org.bitcoinj:bitcoinj-core:0.15.10'
+    implementation 'com.github.dogecoin:libdohj:v0.15'
+    implementation 'com.google.guava:guava:30.0-android'
+    implementation 'com.tencent.bugly:crashreport:latest.release'
+
+    implementation "com.madgag.spongycastle:core:1.58.0.0"
+    implementation "com.madgag.spongycastle:prov:1.58.0.0"
+    implementation 'org.bouncycastle:bcprov-jdk15to18:1.78.1'
+
+
+    ext.kethereum_version = '0.85.7'
+    implementation "com.github.walleth.kethereum:extensions_kotlin:$kethereum_version"
+    implementation "com.github.walleth.kethereum:extensions_transactions:$kethereum_version"
+    implementation "com.github.walleth.kethereum:erc55:$kethereum_version"
+    implementation "com.github.walleth.kethereum:keccak_shortcut:$kethereum_version"
+//    implementation "com.github.walleth.kethereum:wallet:$kethereum_version"
+    implementation "com.github.walleth.kethereum:crypto_impl_spongycastle:$kethereum_version"
+    implementation "com.github.walleth.kethereum:crypto:$kethereum_version"
+    implementation "com.github.walleth.kethereum:crypto_api:$kethereum_version"
+    implementation "com.github.walleth.kethereum:model:$kethereum_version"
+//    implementation "com.github.walleth.kethereum:rlp:$kethereum_version"
+//    implementation "com.github.walleth.kethereum:abi:$kethereum_version"
+    implementation "com.github.walleth.kethereum:types:$kethereum_version"
+    implementation "com.github.walleth.kethereum:erc712:$kethereum_version"
+
+    ext.komputing_khex_extensions_version = "1.1.2"
+    implementation("com.github.komputing.khex:extensions:$komputing_khex_extensions_version")
+
+    implementation 'com.squareup.retrofit2:retrofit:2.8.1'
+    implementation 'com.squareup.retrofit2:converter-moshi:2.6.0'
+    implementation 'com.squareup.moshi:moshi:1.13.0'
+    implementation "com.squareup.moshi:moshi-kotlin:1.13.0"
+
+    //dependencies for binance
+    implementation 'com.google.protobuf:protobuf-java:3.6.1'
+    implementation 'io.grpc:grpc-protobuf:1.17.1'
+    implementation 'io.grpc:grpc-stub:1.17.1'
+    implementation 'androidx.multidex:multidex:2.0.1'
+
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.9.3'
+    implementation("ru.gildor.coroutines:kotlin-coroutines-okhttp:1.0")
+    implementation 'com.google.android.gms:play-services-ads-identifier:18.1.0'
+}
+
+//Protobuf
+wire {
+    sourcePath {
+        srcDir 'src/main/kotlin/com/cardcoin/card_coin/flutter/blockchains/tron/proto'
+
+    }       
+    kotlin {}
+}

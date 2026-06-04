@@ -1,0 +1,3 @@
+class LegacyAddress{
+  // LegacyAddress.fromKey
+}

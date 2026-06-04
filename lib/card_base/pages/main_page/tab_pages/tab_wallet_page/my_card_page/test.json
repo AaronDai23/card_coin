@@ -1,0 +1,29 @@
+{
+  "data": {
+    "address": "Puri indah !601,West Jakarta, Jakarta DKI, Indonesia",
+    "background": "https://loankyc-sgp.oss-ap-southeast-1.aliyuncs.com/public/35462e61d1da4d32844046f4f6f805e9/merchant/aliyun_oss_ee1097a19116417abe84bc722ff70c03.png",
+    "brandImage": "https://loankyc-sgp.oss-ap-southeast-1.aliyuncs.com/public/35462e61d1da4d32844046f4f6f805e9/smart_card/aliyun_oss_c3e70697442e4e9984205c2cbed8b643.png",
+    "cardNo": "04000042",
+    "contact": "Francis You",
+    "description": "fabulous",
+    "email": "abc@tea.com",
+    "held": false,
+    "logo": "https://loankyc-sgp.oss-ap-southeast-1.aliyuncs.com/public/35462e61d1da4d32844046f4f6f805e9/merchant/aliyun_oss_5282e1b18fd141099f1db639b272262e.png",
+    "mobile": "+6281112345678",
+    "name": "PT.DSB",
+    "orgId": "35462e61d1da4d32844046f4f6f805e9",
+    "shapeImage": "https://loankyc-sgp.oss-ap-southeast-1.aliyuncs.com/public/35462e61d1da4d32844046f4f6f805e9/smart_card/aliyun_oss_e8d3a9ada8ef4580ba16c4e57cfe4338.png",
+    "smartCardId": "58c19679de834aed92d6f7fc3d835dc8",
+    "status": "ACTIVE",
+    "title": "Director",
+    "uid": "17CB0AD7"
+  },
+  "errcode": "0",
+  "errmsg": "",
+  "organizationType": "SMART_CARD",
+  "currencyType": "FIAT",
+  "currency": "Rp",
+  "scale": 0,
+  "currentDate": "2024-09-07 23:32:17.037",
+  "siteType": "PRODUCTION"
+}

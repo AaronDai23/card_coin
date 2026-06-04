@@ -1,0 +1,51 @@
+{
+  "data": [
+    {
+      "code": "DIRECT",
+      "createBy": "",
+      "createTime": 1669043288000,
+      "id": "postcard_source_direct",
+      "name": "直接创建",
+      "orgId": "687c9e5f06514bc7ad9bda1b0b77dc3d",
+      "seq": 1,
+      "status": "ACTIVE",
+      "updateBy": "",
+      "updateTime": null,
+      "value": ""
+    },
+    {
+      "code": "NFC",
+      "createBy": "",
+      "createTime": 1669447548000,
+      "id": "postcard_source_nfc",
+      "name": "通过NFC",
+      "orgId": "687c9e5f06514bc7ad9bda1b0b77dc3d",
+      "seq": 2,
+      "status": "ACTIVE",
+      "updateBy": "",
+      "updateTime": 1669542396000,
+      "value": ""
+    },
+    {
+      "code": "OCR",
+      "createBy": "",
+      "createTime": 1669542400000,
+      "id": "postcard_source_ocr",
+      "name": "通过OCR",
+      "orgId": "687c9e5f06514bc7ad9bda1b0b77dc3d",
+      "seq": 3,
+      "status": "ACTIVE",
+      "updateBy": "",
+      "updateTime": null,
+      "value": ""
+    }
+  ],
+  "errcode": "0",
+  "errmsg": "",
+  "organizationType": "POSTCARD",
+  "currencyType": "FIAT",
+  "currency": "Rp",
+  "scale": 0,
+  "currentDate": "2024-06-10 20:35:47.823",
+  "siteType": "PRODUCTION"
+}

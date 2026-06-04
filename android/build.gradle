@@ -1,0 +1,70 @@
+def protoPath = 'src/proto'
+def wireGeneratedPath = 'build/generated/source/wire'
+buildscript {
+    apply from: 'dependencies.gradle'
+
+    ext.kotlin_version = '2.1.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:$versions.build_gradle"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$versions.kotlin"
+        classpath "com.github.dcendents:android-maven-gradle-plugin:2.1"
+        classpath 'com.squareup.wire:wire-gradle-plugin:4.4.3'
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$versions.kotlin"
+    }
+}
+
+allprojects {
+    def Properties properties = new Properties()
+    properties.load(project.rootProject.file("local.properties").newDataInputStream())
+    def nexusUser = "viewer"
+    def nexusPass = "smartcash124"
+
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        google()
+        mavenCentral()
+        mavenLocal()
+        
+        // maven {
+        //     // setting any repository from tangem project allows maven search all packages in the project
+        //     url = uri("https://maven.pkg.github.com/tangem/tangem-sdk-android")
+        //     credentials {
+        //         username = properties.getProperty("gpr.user", System.getenv('GITHUB_ACTOR'))
+        //         password = properties.getProperty("gpr.key", System.getenv('GITHUB_TOKEN'))
+        //     }
+        // }
+        // maven {
+        //     credentials {
+        //         username = nexusUser
+        //         password = nexusPass
+        //     }
+        //     url "https://nexus.tangem-tech.com/repository/maven-releases/"
+        // }
+        // maven {
+        //     credentials {
+        //         username = nexusUser
+        //         password = nexusPass
+        //     }
+        //     url "https://nexus.tangem-tech.com/repository/maven-snapshots/"
+        // }
+
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

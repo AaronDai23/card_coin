@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    每个 <tech-list> 内部是 AND（卡必须同时支持所有 tech）。
+    多个 <tech-list> 之间是 OR（满足任意一个即触发 TECH_DISCOVERED）。
+    IsoDep 是我们芯片卡使用的协议，底层可能走 NfcA 或 NfcB，需分别声明。
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- IsoDep over NfcA（大多数智能卡/SIM卡） -->
+    <tech-list>
+        <tech>android.nfc.tech.IsoDep</tech>
+        <tech>android.nfc.tech.NfcA</tech>
+    </tech-list>
+    <!-- IsoDep over NfcB（部分银行卡/身份证） -->
+    <tech-list>
+        <tech>android.nfc.tech.IsoDep</tech>
+        <tech>android.nfc.tech.NfcB</tech>
+    </tech-list>
+    <!-- IsoDep 兜底（无论底层走哪种 RF 协议） -->
+    <tech-list>
+        <tech>android.nfc.tech.IsoDep</tech>
+    </tech-list>
+</resources>

@@ -1,0 +1,106 @@
+# ============================================================
+# Podfile.private-specs — 使用私有 Spec 仓库的 Podfile 示例
+# 用途：展示从本地路径/Git依赖切换到私有 Spec 仓库后的写法
+# 使用：备份当前 Podfile，然后 cp Podfile.private-specs Podfile
+# ============================================================
+
+# ── 声明 Spec 源 ──
+# 1. 私有 Spec 仓库（GitHub）
+source 'https://github.com/AaronDai23/cardcoin-specs.git'
+# 2. CocoaPods 官方源
+source 'https://cdn.cocoapods.org/'
+
+platform :ios, '15.0'
+
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+def common_pods
+  # ── 从私有 Spec 仓库安装（不再依赖本地路径） ──
+  pod 'TangemSdk', '~> 3.8.0'
+  pod 'BitcoinCore.swift', '~> 0.15.4'
+  pod 'TrustWalletCore', '~> 4.4'
+end
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  # ── 公共依赖（版本已精确锁定） ──
+  pod 'BigInt', '~> 5.2.0'
+  pod 'SwiftyJSON', '~> 5.0.1'
+  pod 'Alamofire', '~> 5.5.0'
+  pod 'Moya', '~> 15.0.0'
+  pod 'Sodium', '~> 0.9.1'
+  pod 'SwiftCBOR'
+
+  # ── 从私有 Spec 仓库安装（替代 :git 引用） ──
+  pod 'BinanceChain', '0.0.9'
+  pod 'HDWalletKit', '0.3.12'
+  pod 'web3swift', '2.2.12'
+  pod 'Solana.Swift', '1.0.0-signer.7'
+
+  pod 'AnyCodable-FlightSchool'
+  pod 'stellar-ios-mac-sdk'
+  pod 'ScaleCodec'
+  pod 'SwiftProtobuf', '~> 1.26'
+
+  common_pods
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
+
+  installer.pods_project.build_configurations.each do |config|
+    if config.name.include?("Debug")
+      config.build_settings['GCC_OPTIMIZATION_LEVEL'] = '0'
+      config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+      config.build_settings['ENABLE_TESTABILITY'] = 'YES'
+      config.build_settings['SWIFT_COMPILATION_MODE'] = 'Incremental'
+    end
+    config.build_settings['DEAD_CODE_STRIPPING'] = 'YES'
+  end
+
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+    end
+  end
+
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+    end
+    if target.respond_to?(:product_type) and target.product_type == "com.apple.product-type.bundle"
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      end
+    end
+  end
+end
