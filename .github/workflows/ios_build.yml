@@ -1,0 +1,178 @@
+name: iOS Build & Archive
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: '打包方式'
+        required: true
+        default: 'app-store'
+        type: choice
+        options:
+          - app-store
+          - ad-hoc
+          - development
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 所需 GitHub Secrets（在仓库 Settings → Secrets and variables → Actions 中配置）
+#
+#   IOS_CERTIFICATE_BASE64       - 发布证书 .p12 文件的 Base64 内容
+#                                  生成方式: base64 -i Certificates.p12 | pbcopy
+#   IOS_CERTIFICATE_PASSWORD     - .p12 证书密码
+#   KEYCHAIN_PASSWORD            - 临时 Keychain 密码（任意字符串即可）
+#   APP_STORE_CONNECT_KEY_ID     - App Store Connect API Key ID
+#   APP_STORE_CONNECT_ISSUER_ID  - App Store Connect Issuer ID
+#   APP_STORE_CONNECT_KEY_BASE64 - .p8 私钥文件的 Base64 内容
+#                                  生成方式: base64 -i AuthKey_XXXX.p8 | pbcopy
+# ─────────────────────────────────────────────────────────────────────────────
+
+env:
+  FLUTTER_VERSION: '3.29.0'
+  XCODE_WORKSPACE: ios/Runner.xcworkspace
+  XCODE_SCHEME: Runner
+  XCODE_CONFIGURATION: Release
+  BUNDLE_ID: com.cardbase.app
+
+jobs:
+  build-ios:
+    name: Build & Archive iOS
+    runs-on: macos-15
+
+    steps:
+      # ── 1. 拉取代码 ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. 安装 Flutter ───────────────────────────────────────────────────────
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # ── 3. CocoaPods 依赖 ─────────────────────────────────────────────────────
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+        env:
+          # 允许 CocoaPods 访问私有 spec 仓库（如果用到）
+          GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 4. 导入签名证书 ───────────────────────────────────────────────────────
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # 解码证书
+          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+
+          # 创建临时 Keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # 导入证书
+          security import "$CERTIFICATE_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          # 将临时 Keychain 加入搜索列表
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      # ── 5. 配置 App Store Connect API Key（自动签名用） ─────────────────────
+      - name: Setup App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        run: |
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys
+          mkdir -p "$ASC_KEY_PATH"
+          echo -n "$ASC_KEY_BASE64" | base64 --decode \
+            > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
+
+      # ── 6. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────
+      - name: Set export method
+        run: |
+          METHOD="${{ github.event.inputs.export_method || 'app-store' }}"
+          /usr/libexec/PlistBuddy -c "Set :method $METHOD" ios/ExportOptions.plist
+          echo "Export method: $METHOD"
+
+      # ── 7. Archive ────────────────────────────────────────────────────────────
+      - name: Build Xcode Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+          xcodebuild \
+            -workspace "${{ env.XCODE_WORKSPACE }}" \
+            -scheme "${{ env.XCODE_SCHEME }}" \
+            -sdk iphoneos \
+            -configuration "${{ env.XCODE_CONFIGURATION }}" \
+            -archivePath "$ARCHIVE_PATH" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=G76B76R439 \
+            archive \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+      # ── 8. Export IPA ─────────────────────────────────────────────────────────
+      - name: Export IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
+          EXPORT_PATH="$RUNNER_TEMP/ipa"
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath "$EXPORT_PATH" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+      # ── 9. 上传 IPA 为构建产物 ────────────────────────────────────────────────
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runner-${{ github.run_number }}
+          path: ${{ runner.temp }}/ipa/*.ipa
+          retention-days: 30
+
+      # ── 10. 清理 Keychain ──────────────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
+          rm -f ~/.appstoreconnect/private_keys/AuthKey_*.p8 || true
