@@ -29,7 +29,7 @@ on:
 # ─────────────────────────────────────────────────────────────────────────────
 
 env:
-  FLUTTER_VERSION: '3.29.0'
+  FLUTTER_VERSION: '3.x'
   XCODE_WORKSPACE: ios/Runner.xcworkspace
   XCODE_SCHEME: Runner
   XCODE_CONFIGURATION: Release
@@ -65,15 +65,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
+      # ── AppsFlyerFramework 二进制预下载（本地曾因 GitHub 限速失败，CI 上先缓存） ──
+      - name: Cache AppsFlyerFramework binary
+        id: cache-appsflyer
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/AppsFlyerLib-Binaries.zip
+          key: appsflyer-6.14.3
+
+      - name: Download AppsFlyerFramework binary
+        if: steps.cache-appsflyer.outputs.cache-hit != 'true'
+        run: |
+          curl -L --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/AppsFlyerLib-Binaries.zip" \
+            https://github.com/AppsFlyerSDK/AppsFlyerFramework/releases/download/6.14.3/AppsFlyerLib-Binaries.zip
+
       - name: Install CocoaPods dependencies
         run: |
           cd ios
+          # 让 AppsFlyerFramework 使用本地已下载的二进制，避免网络超时
+          APPSFLYER_ZIP="$RUNNER_TEMP/AppsFlyerLib-Binaries.zip"
+          if [ -f "$APPSFLYER_ZIP" ]; then
+            sed -i '' \
+              "s|# pod 'AppsFlyerFramework'.*file://.*|pod 'AppsFlyerFramework', '6.14.3', :http => 'file://$APPSFLYER_ZIP'|" \
+              Podfile
+          fi
           pod install --repo-update
         env:
-          # 允许 CocoaPods 访问私有 spec 仓库（如果用到）
           GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 4. 导入签名证书 ───────────────────────────────────────────────────────
+      # ── 4. 安装 xcpretty ──────────────────────────────────────────────────────
+      - name: Install xcpretty
+        run: gem install xcpretty --no-document
+
+      # ── 5. 导入签名证书 ───────────────────────────────────────────────────────
       - name: Import signing certificate
         env:
           CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
@@ -100,7 +124,7 @@ jobs:
           # 将临时 Keychain 加入搜索列表
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-      # ── 5. 配置 App Store Connect API Key（自动签名用） ─────────────────────
+      # ── 6. 配置 App Store Connect API Key（自动签名用） ─────────────────────
       - name: Setup App Store Connect API key
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -111,14 +135,14 @@ jobs:
           echo -n "$ASC_KEY_BASE64" | base64 --decode \
             > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
 
-      # ── 6. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────
+      # ── 7. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────
       - name: Set export method
         run: |
           METHOD="${{ github.event.inputs.export_method || 'app-store' }}"
           /usr/libexec/PlistBuddy -c "Set :method $METHOD" ios/ExportOptions.plist
           echo "Export method: $METHOD"
 
-      # ── 7. Archive ────────────────────────────────────────────────────────────
+      # ── 8. Archive ────────────────────────────────────────────────────────────
       - name: Build Xcode Archive
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -142,7 +166,7 @@ jobs:
             archive \
             | xcpretty && exit ${PIPESTATUS[0]}
 
-      # ── 8. Export IPA ─────────────────────────────────────────────────────────
+      # ── 9. Export IPA ─────────────────────────────────────────────────────────
       - name: Export IPA
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -162,7 +186,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             | xcpretty && exit ${PIPESTATUS[0]}
 
-      # ── 9. 上传 IPA 为构建产物 ────────────────────────────────────────────────
+      # ── 10. 上传 IPA 为构建产物 ────────────────────────────────────────────────
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
@@ -170,7 +194,7 @@ jobs:
           path: ${{ runner.temp }}/ipa/*.ipa
           retention-days: 30
 
-      # ── 10. 清理 Keychain ──────────────────────────────────────────────────────
+      # ── 11. 清理 Keychain ──────────────────────────────────────────────────────
       - name: Cleanup keychain
         if: always()
         run: |
