@@ -2,19 +2,26 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- 发布方式: app-store / ad-hoc / enterprise / development -->
+    <!-- 发布方式: app-store-connect / ad-hoc / enterprise / development -->
     <key>method</key>
-    <string>app-store</string>
+    <string>app-store-connect</string>
 
     <key>teamID</key>
     <string>G76B76R439</string>
 
-    <!-- 自动签名，由 Xcode 管理 Provisioning Profile -->
+    <!-- 手动签名：CI 通过 PlistBuddy 在运行时将 provisioningProfiles 填入实际 UUID -->
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
 
     <key>signingCertificate</key>
     <string>Apple Distribution</string>
+
+    <!-- CI 在运行时通过 PlistBuddy 填入实际 Profile UUID，勿手动修改此值 -->
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.cardbase.app</key>
+        <string>REPLACE_AT_RUNTIME</string>
+    </dict>
 
     <key>stripSwiftSymbols</key>
     <true/>

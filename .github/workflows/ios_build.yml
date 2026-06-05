@@ -189,7 +189,39 @@ jobs:
           # 打印可用签名身份，便于定位证书类型问题
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
 
-      # ── 6. 配置 App Store Connect API Key（自动签名用） ─────────────────────
+      # ── 6. 导入 Provisioning Profile（手动签名用） ────────────────────────────
+      - name: Import provisioning profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          decode_base64() {
+            if base64 --help 2>&1 | grep -q -- '--decode'; then
+              base64 --decode
+            else
+              base64 -D
+            fi
+          }
+
+          PROFILE_PATH="$RUNNER_TEMP/distribution.mobileprovision"
+          echo -n "$PROVISIONING_PROFILE_BASE64" | decode_base64 > "$PROFILE_PATH"
+
+          # 从 CMS 签名的 mobileprovision 中提取 UUID
+          security cms -D -i "$PROFILE_PATH" -o "$RUNNER_TEMP/profile_decoded.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile_decoded.plist")
+          echo "Profile UUID: $PROFILE_UUID"
+
+          # 安装到 Xcode 标准路径
+          PP_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$PP_DIR"
+          cp "$PROFILE_PATH" "$PP_DIR/$PROFILE_UUID.mobileprovision"
+
+          # 将 UUID 写入 ExportOptions.plist，供 xcodebuild -exportArchive 使用
+          /usr/libexec/PlistBuddy \
+            -c "Set :provisioningProfiles:com.cardbase.app $PROFILE_UUID" \
+            ios/ExportOptions.plist
+          echo "ExportOptions.plist updated with UUID: $PROFILE_UUID"
+
+      # ── 7. 配置 App Store Connect API Key（archive 自动签名用） ──────────────
       - name: Setup App Store Connect API key
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -208,14 +240,14 @@ jobs:
           echo -n "$ASC_KEY_BASE64" | decode_base64 \
             > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
 
-      # ── 7. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────
+      # ── 8. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────
       - name: Set export method
         run: |
-          METHOD="${{ github.event.inputs.export_method || 'app-store' }}"
+          METHOD="${{ github.event.inputs.export_method || 'app-store-connect' }}"
           /usr/libexec/PlistBuddy -c "Set :method $METHOD" ios/ExportOptions.plist
           echo "Export method: $METHOD"
 
-      # ── 8. Archive ────────────────────────────────────────────────────────────
+      # ── 9. Archive ────────────────────────────────────────────────────────────
       - name: Build Xcode Archive
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -248,26 +280,20 @@ jobs:
 
           cat "$ARCHIVE_LOG" | xcpretty
 
-      # ── 9. Export IPA ─────────────────────────────────────────────────────────
+      # ── 10. Export IPA ────────────────────────────────────────────────────────
       - name: Export IPA
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           EXPORT_PATH="$RUNNER_TEMP/ipa"
-          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
           EXPORT_LOG="$RUNNER_TEMP/xcodebuild-export.log"
 
+          # 使用手动签名（manual signingStyle），不需要 -allowProvisioningUpdates
+          # 和 App Store Connect API Key，证书和 Profile 已在前面步骤导入
           if ! xcodebuild -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist ios/ExportOptions.plist \
             -exportPath "$EXPORT_PATH" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             > "$EXPORT_LOG" 2>&1; then
             cat "$EXPORT_LOG"
             exit 1
@@ -275,7 +301,7 @@ jobs:
 
           cat "$EXPORT_LOG" | xcpretty
 
-      # ── 10. 上传 IPA 为构建产物 ────────────────────────────────────────────────
+      # ── 11. 上传 IPA 为构建产物 ────────────────────────────────────────────────
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
@@ -303,7 +329,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # ── 11. 清理 Keychain ──────────────────────────────────────────────────────
+      # ── 12. 清理 Keychain ──────────────────────────────────────────────────────
       - name: Cleanup keychain
         if: always()
         run: |
