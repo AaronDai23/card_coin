@@ -146,23 +146,27 @@ jobs:
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
           ARCHIVE_LOG="$RUNNER_TEMP/xcodebuild-archive.log"
+          RESULT_BUNDLE_PATH="$RUNNER_TEMP/Runner.xcresult"
 
-          xcodebuild \
+          if ! xcodebuild \
             -workspace "${{ env.XCODE_WORKSPACE }}" \
             -scheme "${{ env.XCODE_SCHEME }}" \
             -sdk iphoneos \
             -destination "generic/platform=iOS" \
             -configuration "${{ env.XCODE_CONFIGURATION }}" \
             -archivePath "$ARCHIVE_PATH" \
+            -resultBundlePath "$RESULT_BUNDLE_PATH" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=G76B76R439 \
-            archive \
-            | tee "$ARCHIVE_LOG" \
-            | xcpretty
+            archive 2>&1 | tee "$ARCHIVE_LOG"; then
+            echo "Archive failed. Showing last 200 lines from archive log:"
+            tail -n 200 "$ARCHIVE_LOG"
+            exit 1
+          fi
 
       # ── 9. Export IPA ─────────────────────────────────────────────────────────
       - name: Export IPA
@@ -203,6 +207,15 @@ jobs:
           path: |
             ${{ runner.temp }}/xcodebuild-archive.log
             ${{ runner.temp }}/xcodebuild-export.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload xcresult bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-${{ github.run_number }}
+          path: ${{ runner.temp }}/Runner.xcresult
           if-no-files-found: ignore
           retention-days: 7
 
