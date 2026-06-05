@@ -41,10 +41,18 @@ target 'Runner' do
   # 将文件保存到本地后，将下方路径替换为实际路径，然后取消注释：
   # pod 'AppsFlyerFramework', '6.14.3', :http => 'file:///Users/daipeiqiong/Downloads/AppsFlyerLib-Binaries.zip'
 
-  # Explicitly declare app_settings so CocoaPods always includes it, regardless of
-  # whether flutter_install_all_ios_pods picks it up (it can be silently dropped
-  # when pod install re-resolves with --repo-update on CI).
-  pod 'app_settings', :path => '.symlinks/plugins/app_settings/ios'
+  # The following pods are declared explicitly because flutter_install_all_ios_pods
+  # can silently drop them on CI when pod install re-resolves dependencies.
+  # Paths are taken directly from ios/Podfile.lock EXTERNAL SOURCES section.
+  pod 'app_settings',                :path => '.symlinks/plugins/app_settings/ios'
+  pod 'connectivity_plus',           :path => '.symlinks/plugins/connectivity_plus/ios'
+  pod 'image_picker_ios',            :path => '.symlinks/plugins/image_picker_ios/ios'
+  pod 'local_auth_darwin',           :path => '.symlinks/plugins/local_auth_darwin/darwin'
+  pod 'package_info_plus',           :path => '.symlinks/plugins/package_info_plus/ios'
+  pod 'pointer_interceptor_ios',     :path => '.symlinks/plugins/pointer_interceptor_ios/ios'
+  pod 'shared_preferences_foundation', :path => '.symlinks/plugins/shared_preferences_foundation/darwin'
+  pod 'sqflite_darwin',              :path => '.symlinks/plugins/sqflite_darwin/darwin'
+  pod 'url_launcher_ios',            :path => '.symlinks/plugins/url_launcher_ios/ios'
 
   common_pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
