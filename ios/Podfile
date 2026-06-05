@@ -78,6 +78,12 @@ post_install do |installer|
   end
   
   installer.pods_project.targets.each do |target|
+    # app_settings requires DEFINES_MODULE to expose its Clang module in frameworks mode
+    if target.name == 'app_settings'
+      target.build_configurations.each do |config|
+        config.build_settings['DEFINES_MODULE'] = 'YES'
+      end
+    end
 
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
