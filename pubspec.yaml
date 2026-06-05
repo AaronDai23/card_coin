@@ -115,6 +115,7 @@ dependencies:
   dart_ping_ios: ^4.0.2
   marquee: ^2.2.3
   linear_progress_bar: ^1.1.0
+  # Pin to upstream Flutter 3 compatibility fix to avoid iOS archive kernel snapshot errors in CI.
   flutter_picker:
     git:
       url: https://github.com/yangyxd/flutter_picker.git
