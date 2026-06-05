@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local private specs checkout (keep out of repo to avoid submodule/gitlink conflicts)
+ios/private-specs/cardcoin-specs/

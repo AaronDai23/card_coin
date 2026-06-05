@@ -162,11 +162,12 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=G76B76R439 \
-            archive 2>&1 | tee "$ARCHIVE_LOG"; then
-            echo "Archive failed. Showing last 200 lines from archive log:"
-            tail -n 200 "$ARCHIVE_LOG"
+            archive > "$ARCHIVE_LOG" 2>&1; then
+            cat "$ARCHIVE_LOG"
             exit 1
           fi
+
+          cat "$ARCHIVE_LOG" | xcpretty
 
       # ── 9. Export IPA ─────────────────────────────────────────────────────────
       - name: Export IPA
@@ -180,7 +181,7 @@ jobs:
           ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
           EXPORT_LOG="$RUNNER_TEMP/xcodebuild-export.log"
 
-          xcodebuild -exportArchive \
+          if ! xcodebuild -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist ios/ExportOptions.plist \
             -exportPath "$EXPORT_PATH" \
@@ -188,8 +189,12 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            | tee "$EXPORT_LOG" \
-            | xcpretty
+            > "$EXPORT_LOG" 2>&1; then
+            cat "$EXPORT_LOG"
+            exit 1
+          fi
+
+          cat "$EXPORT_LOG" | xcpretty
 
       # ── 10. 上传 IPA 为构建产物 ────────────────────────────────────────────────
       - name: Upload IPA artifact
