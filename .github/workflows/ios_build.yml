@@ -80,30 +80,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
-      # ── AppsFlyerFramework 二进制预下载（本地曾因 GitHub 限速失败，CI 上先缓存） ──
-      - name: Cache AppsFlyerFramework binary
-        id: cache-appsflyer
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/AppsFlyerLib-Binaries.zip
-          key: appsflyer-6.14.3
-
-      - name: Download AppsFlyerFramework binary
-        if: steps.cache-appsflyer.outputs.cache-hit != 'true'
-        run: |
-          curl -L --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/AppsFlyerLib-Binaries.zip" \
-            https://github.com/AppsFlyerSDK/AppsFlyerFramework/releases/download/6.14.3/AppsFlyerLib-Binaries.zip
-
       - name: Install CocoaPods dependencies
         run: |
           cd ios
-          # 让 AppsFlyerFramework 使用本地已下载的二进制，避免网络超时
-          APPSFLYER_ZIP="$RUNNER_TEMP/AppsFlyerLib-Binaries.zip"
-          if [ -f "$APPSFLYER_ZIP" ]; then
-            sed -i '' \
-              "s|# pod 'AppsFlyerFramework'.*file://.*|pod 'AppsFlyerFramework', :http => 'file://$APPSFLYER_ZIP'|" \
-              Podfile
-          fi
           pod install --repo-update
         env:
           GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
