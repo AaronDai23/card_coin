@@ -142,13 +142,16 @@ jobs:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
+          set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          ARCHIVE_LOG="$RUNNER_TEMP/xcodebuild-archive.log"
 
           xcodebuild \
             -workspace "${{ env.XCODE_WORKSPACE }}" \
             -scheme "${{ env.XCODE_SCHEME }}" \
             -sdk iphoneos \
+            -destination "generic/platform=iOS" \
             -configuration "${{ env.XCODE_CONFIGURATION }}" \
             -archivePath "$ARCHIVE_PATH" \
             -allowProvisioningUpdates \
@@ -158,7 +161,8 @@ jobs:
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive \
-            | xcpretty && exit ${PIPESTATUS[0]}
+            | tee "$ARCHIVE_LOG" \
+            | xcpretty
 
       # ── 9. Export IPA ─────────────────────────────────────────────────────────
       - name: Export IPA
@@ -166,9 +170,11 @@ jobs:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
+          set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           EXPORT_PATH="$RUNNER_TEMP/ipa"
           ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          EXPORT_LOG="$RUNNER_TEMP/xcodebuild-export.log"
 
           xcodebuild -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
@@ -178,7 +184,8 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            | xcpretty && exit ${PIPESTATUS[0]}
+            | tee "$EXPORT_LOG" \
+            | xcpretty
 
       # ── 10. 上传 IPA 为构建产物 ────────────────────────────────────────────────
       - name: Upload IPA artifact
@@ -187,6 +194,17 @@ jobs:
           name: Runner-${{ github.run_number }}
           path: ${{ runner.temp }}/ipa/*.ipa
           retention-days: 30
+
+      - name: Upload xcodebuild logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/xcodebuild-archive.log
+            ${{ runner.temp }}/xcodebuild-export.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       # ── 11. 清理 Keychain ──────────────────────────────────────────────────────
       - name: Cleanup keychain
