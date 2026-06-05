@@ -130,12 +130,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
+          key: ${{ runner.os }}-pods-${{ env.FLUTTER_VERSION }}-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock', 'pubspec.lock', '.flutter-plugins-dependencies') }}
 
       - name: Install CocoaPods dependencies
         run: |
+          # Clean stale iOS integration artifacts so plugin pods (for example app_settings)
+          # are recreated from current Flutter dependency metadata on each CI run.
+          rm -rf ios/Pods ios/.symlinks ios/Flutter/Flutter.podspec
+          flutter pub get
           cd ios
           pod install --clean-install --repo-update
         env:
