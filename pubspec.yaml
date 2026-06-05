@@ -115,6 +115,7 @@ dependencies:
   dart_ping_ios: ^4.0.2
   marquee: ^2.2.3
   linear_progress_bar: ^1.1.0
+  # pub.dev 2.1.0 uses removed Flutter APIs (bottomAppBarColor/headline6) and breaks iOS archive.
   flutter_picker:
     git:
       url: https://github.com/yangyxd/flutter_picker.git
