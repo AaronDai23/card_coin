@@ -118,6 +118,9 @@ jobs:
           # 将临时 Keychain 加入搜索列表
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
+          # 打印可用签名身份，便于定位证书类型问题
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
+
       # ── 6. 配置 App Store Connect API Key（自动签名用） ─────────────────────
       - name: Setup App Store Connect API key
         env:
@@ -161,6 +164,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
             cat "$ARCHIVE_LOG"
