@@ -26,12 +26,14 @@ on:
 #   APP_STORE_CONNECT_ISSUER_ID  - App Store Connect Issuer ID
 #   APP_STORE_CONNECT_KEY_BASE64 - .p8 私钥文件的 Base64 内容
 #                                  生成方式: base64 -i AuthKey_XXXX.p8 | pbcopy
+#   DOTENV_BASE64                - 项目根目录 .env 文件的 Base64 内容
+#                                  生成方式: base64 -i .env | pbcopy
 #   CODING_NET_USERNAME          - e.coding.net 用户名
 #   CODING_NET_PASSWORD          - e.coding.net 访问密码或访问令牌
 # ─────────────────────────────────────────────────────────────────────────────
 
 env:
-  FLUTTER_VERSION: '3.x'
+  FLUTTER_VERSION: '3.44.1'
   XCODE_WORKSPACE: ios/Runner.xcworkspace
   XCODE_SCHEME: Runner
   XCODE_CONFIGURATION: Release
@@ -68,6 +70,58 @@ jobs:
           git config --global url."https://${CODING_NET_USERNAME}:${CODING_NET_PASSWORD}@e.coding.net/".insteadOf "https://e.coding.net/"
           git config --global credential.helper store
 
+      - name: Validate required secrets
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+          CODING_NET_USERNAME: ${{ secrets.CODING_NET_USERNAME }}
+          CODING_NET_PASSWORD: ${{ secrets.CODING_NET_PASSWORD }}
+          DOTENV_BASE64: ${{ secrets.DOTENV_BASE64 }}
+        run: |
+          missing=()
+          for key in \
+            IOS_CERTIFICATE_BASE64 \
+            IOS_CERTIFICATE_PASSWORD \
+            KEYCHAIN_PASSWORD \
+            APP_STORE_CONNECT_KEY_ID \
+            APP_STORE_CONNECT_ISSUER_ID \
+            APP_STORE_CONNECT_KEY_BASE64 \
+            CODING_NET_USERNAME \
+            CODING_NET_PASSWORD \
+            DOTENV_BASE64; do
+            if [ -z "${!key}" ]; then
+              missing+=("$key")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Create .env from secret
+        env:
+          DOTENV_BASE64: ${{ secrets.DOTENV_BASE64 }}
+        run: |
+          decode_base64() {
+            if base64 --help 2>&1 | grep -q -- '--decode'; then
+              base64 --decode
+            else
+              base64 -D
+            fi
+          }
+
+          echo -n "$DOTENV_BASE64" | decode_base64 > .env
+
+          if [ ! -s .env ]; then
+            echo "::error::.env is empty after decoding DOTENV_BASE64"
+            exit 1
+          fi
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -98,11 +152,19 @@ jobs:
           CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
+          decode_base64() {
+            if base64 --help 2>&1 | grep -q -- '--decode'; then
+              base64 --decode
+            else
+              base64 -D
+            fi
+          }
+
           CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # 解码证书
-          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$CERTIFICATE_BASE64" | decode_base64 > "$CERTIFICATE_PATH"
 
           # 创建临时 Keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -127,9 +189,17 @@ jobs:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
         run: |
+          decode_base64() {
+            if base64 --help 2>&1 | grep -q -- '--decode'; then
+              base64 --decode
+            else
+              base64 -D
+            fi
+          }
+
           ASC_KEY_PATH=~/.appstoreconnect/private_keys
           mkdir -p "$ASC_KEY_PATH"
-          echo -n "$ASC_KEY_BASE64" | base64 --decode \
+          echo -n "$ASC_KEY_BASE64" | decode_base64 \
             > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
 
       # ── 7. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────

@@ -115,7 +115,8 @@ dependencies:
   dart_ping_ios: ^4.0.2
   marquee: ^2.2.3
   linear_progress_bar: ^1.1.0
-  flutter_picker: ^2.1.0
+  flutter_picker:
+    path: vendor/flutter_picker
   fl_chart: ^0.64.0
   slider_button: ^2.1.0
   animated_number: ^1.0.2
@@ -130,8 +131,6 @@ dependencies:
   event_bus: ^2.0.0
   
   app_links: ^3.4.0  # 推荐使用最新稳定版本
-    # git: 
-    #   url: https://github.com/yangyxd/flutter_picker.git
 
   chipcore_sdk:
     # path: ../../chipcore_sdk     #
