@@ -41,6 +41,11 @@ target 'Runner' do
   # 将文件保存到本地后，将下方路径替换为实际路径，然后取消注释：
   # pod 'AppsFlyerFramework', '6.14.3', :http => 'file:///Users/daipeiqiong/Downloads/AppsFlyerLib-Binaries.zip'
 
+  # Explicitly declare app_settings so CocoaPods always includes it, regardless of
+  # whether flutter_install_all_ios_pods picks it up (it can be silently dropped
+  # when pod install re-resolves with --repo-update on CI).
+  pod 'app_settings', :path => '.symlinks/plugins/app_settings/ios'
+
   common_pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end

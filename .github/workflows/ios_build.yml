@@ -139,7 +139,11 @@ jobs:
           rm -rf ios/Pods ios/.symlinks ios/Flutter/Flutter.podspec
           flutter pub get
           cd ios
-          pod install --clean-install --repo-update
+          # Do NOT pass --repo-update: it triggers a full spec refresh + re-resolution
+          # which can silently drop external-source pods whose podspec version does not
+          # match the pub package version (e.g. app_settings podspec 6.1.2 vs pub 7.0.0).
+          # The committed Podfile.lock already encodes the correct resolved set.
+          pod install --clean-install
         env:
           GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
