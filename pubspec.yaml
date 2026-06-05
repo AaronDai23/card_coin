@@ -115,7 +115,11 @@ dependencies:
   dart_ping_ios: ^4.0.2
   marquee: ^2.2.3
   linear_progress_bar: ^1.1.0
-  flutter_picker: ^2.1.0
+  # Pin to known-good commit that keeps Flutter 3.x compatibility (avoids removed bottomAppBarColor/headline6 APIs in 2.1.0)
+  flutter_picker:
+    git:
+      url: https://github.com/yangyxd/flutter_picker.git
+      ref: b38ec78886fa05068d67b54caf22650ab71205a2
   fl_chart: ^0.64.0
   slider_button: ^2.1.0
   animated_number: ^1.0.2
