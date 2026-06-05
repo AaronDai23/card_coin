@@ -101,7 +101,7 @@ jobs:
           APPSFLYER_ZIP="$RUNNER_TEMP/AppsFlyerLib-Binaries.zip"
           if [ -f "$APPSFLYER_ZIP" ]; then
             sed -i '' \
-              "s|# pod 'AppsFlyerFramework'.*file://.*|pod 'AppsFlyerFramework', '6.14.3', :http => 'file://$APPSFLYER_ZIP'|" \
+              "s|# pod 'AppsFlyerFramework'.*file://.*|pod 'AppsFlyerFramework', :http => 'file://$APPSFLYER_ZIP'|" \
               Podfile
           fi
           pod install --repo-update
