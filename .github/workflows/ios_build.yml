@@ -26,6 +26,8 @@ on:
 #   APP_STORE_CONNECT_ISSUER_ID  - App Store Connect Issuer ID
 #   APP_STORE_CONNECT_KEY_BASE64 - .p8 私钥文件的 Base64 内容
 #                                  生成方式: base64 -i AuthKey_XXXX.p8 | pbcopy
+#   CODING_NET_USERNAME          - e.coding.net 用户名
+#   CODING_NET_PASSWORD          - e.coding.net 访问密码或访问令牌
 # ─────────────────────────────────────────────────────────────────────────────
 
 env:
@@ -52,6 +54,19 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
+
+      - name: Configure git credentials for coding.net
+        env:
+          CODING_NET_USERNAME: ${{ secrets.CODING_NET_USERNAME }}
+          CODING_NET_PASSWORD: ${{ secrets.CODING_NET_PASSWORD }}
+        run: |
+          if [ -z "$CODING_NET_USERNAME" ] || [ -z "$CODING_NET_PASSWORD" ]; then
+            echo "Missing CODING_NET_USERNAME or CODING_NET_PASSWORD secrets"
+            exit 1
+          fi
+
+          git config --global url."https://${CODING_NET_USERNAME}:${CODING_NET_PASSWORD}@e.coding.net/".insteadOf "https://e.coding.net/"
+          git config --global credential.helper store
 
       - name: Flutter pub get
         run: flutter pub get
