@@ -323,6 +323,11 @@ jobs:
           ENT_XML="$RUNNER_TEMP/archive-entitlements.plist"
           CODESIGN_ERR="$RUNNER_TEMP/archive-codesign.stderr"
           if ! codesign -d --entitlements :- "$APP_PATH" > "$RAW_ENT" 2> "$CODESIGN_ERR"; then
+            if grep -q "not signed at all" "$CODESIGN_ERR"; then
+              echo "::warning::Archive app is unsigned; skip archive entitlement check and continue to IPA validation"
+              cat "$CODESIGN_ERR"
+              exit 0
+            fi
             echo "::error::codesign failed when reading archive entitlements"
             cat "$CODESIGN_ERR"
             exit 1
