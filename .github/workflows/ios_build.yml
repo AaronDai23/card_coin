@@ -319,8 +319,28 @@ jobs:
             exit 1
           fi
 
+          RAW_ENT="$RUNNER_TEMP/archive-entitlements-raw.plist"
           ENT_XML="$RUNNER_TEMP/archive-entitlements.plist"
-          codesign -d --entitlements :- "$APP_PATH" 2>/dev/null | plutil -convert xml1 - -o "$ENT_XML"
+          CODESIGN_ERR="$RUNNER_TEMP/archive-codesign.stderr"
+          if ! codesign -d --entitlements :- "$APP_PATH" > "$RAW_ENT" 2> "$CODESIGN_ERR"; then
+            echo "::error::codesign failed when reading archive entitlements"
+            cat "$CODESIGN_ERR"
+            exit 1
+          fi
+          if [[ ! -s "$RAW_ENT" ]]; then
+            echo "::error::Archive entitlements output is empty"
+            echo "codesign stderr:"
+            cat "$CODESIGN_ERR"
+            exit 1
+          fi
+          if ! plutil -lint "$RAW_ENT" >/dev/null 2>&1; then
+            echo "::error::Archive entitlements is not a valid plist"
+            cat "$RAW_ENT"
+            exit 1
+          fi
+
+          ENT_XML="$RUNNER_TEMP/archive-entitlements.plist"
+          plutil -convert xml1 "$RAW_ENT" -o "$ENT_XML"
           NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :com.apple.developer.nfc.readersession.formats" "$ENT_XML" 2>/dev/null || true)
           if [[ -z "$NFC_FORMATS" || "$NFC_FORMATS" != *"TAG"* ]]; then
             echo "::error::Archive codesign entitlements missing NFC TAG format"
@@ -369,8 +389,27 @@ jobs:
             exit 1
           fi
 
+          RAW_ENT="$TMP_DIR/app-entitlements-raw.plist"
           ENT_XML="$TMP_DIR/app-entitlements.plist"
-          codesign -d --entitlements :- "$APP_PATH" 2>/dev/null | plutil -convert xml1 - -o "$ENT_XML"
+          CODESIGN_ERR="$TMP_DIR/app-codesign.stderr"
+          if ! codesign -d --entitlements :- "$APP_PATH" > "$RAW_ENT" 2> "$CODESIGN_ERR"; then
+            echo "::error::codesign failed when reading IPA entitlements"
+            cat "$CODESIGN_ERR"
+            exit 1
+          fi
+          if [[ ! -s "$RAW_ENT" ]]; then
+            echo "::error::IPA entitlements output is empty"
+            echo "codesign stderr:"
+            cat "$CODESIGN_ERR"
+            exit 1
+          fi
+          if ! plutil -lint "$RAW_ENT" >/dev/null 2>&1; then
+            echo "::error::IPA entitlements is not a valid plist"
+            cat "$RAW_ENT"
+            exit 1
+          fi
+
+          plutil -convert xml1 "$RAW_ENT" -o "$ENT_XML"
 
           NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :com.apple.developer.nfc.readersession.formats" "$ENT_XML" 2>/dev/null || true)
           if [[ -z "$NFC_FORMATS" || "$NFC_FORMATS" != *"TAG"* ]]; then
