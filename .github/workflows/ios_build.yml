@@ -301,6 +301,9 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
             CODE_SIGN_ENTITLEMENTS=Runner.entitlements \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
@@ -324,9 +327,9 @@ jobs:
           CODESIGN_ERR="$RUNNER_TEMP/archive-codesign.stderr"
           if ! codesign -d --entitlements :- "$APP_PATH" > "$RAW_ENT" 2> "$CODESIGN_ERR"; then
             if grep -q "not signed at all" "$CODESIGN_ERR"; then
-              echo "::warning::Archive app is unsigned; skip archive entitlement check and continue to IPA validation"
+              echo "::error::Archive app is unsigned. Export will drop custom entitlements like NFC."
               cat "$CODESIGN_ERR"
-              exit 0
+              exit 1
             fi
             echo "::error::codesign failed when reading archive entitlements"
             cat "$CODESIGN_ERR"
