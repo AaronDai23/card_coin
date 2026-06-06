@@ -293,6 +293,7 @@ jobs:
             -archivePath "$ARCHIVE_PATH" \
             -resultBundlePath "$RESULT_BUNDLE_PATH" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_ENTITLEMENTS=Runner.entitlements \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
             cat "$ARCHIVE_LOG"
@@ -300,6 +301,27 @@ jobs:
           fi
 
           cat "$ARCHIVE_LOG" | xcpretty
+
+      - name: Validate Archive NFC entitlement
+        run: |
+          set -eo pipefail
+          APP_PATH="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app"
+          if [[ ! -d "$APP_PATH" ]]; then
+            echo "::error::Archived app not found at $APP_PATH"
+            exit 1
+          fi
+
+          ENT_XML="$RUNNER_TEMP/archive-entitlements.plist"
+          codesign -d --entitlements :- "$APP_PATH" 2>/dev/null | plutil -convert xml1 - -o "$ENT_XML"
+          NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :com.apple.developer.nfc.readersession.formats" "$ENT_XML" 2>/dev/null || true)
+          if [[ -z "$NFC_FORMATS" || "$NFC_FORMATS" != *"TAG"* ]]; then
+            echo "::error::Archive codesign entitlements missing NFC TAG format"
+            echo "Archive codesign entitlements:"
+            cat "$ENT_XML"
+            exit 1
+          fi
+
+          echo "Archive NFC entitlement check passed"
 
       # ── 10. Export IPA ────────────────────────────────────────────────────────
       - name: Export IPA
