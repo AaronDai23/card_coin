@@ -352,18 +352,17 @@ jobs:
           fi
           echo "Signing identity: $CERT_NAME"
 
-          # 找到已安装的 provisioning profile
+          # 用步骤 6 已安装的 profile（UUID 存入 $IOS_PROFILE_UUID）
           PP_DIR=~/Library/MobileDevice/Provisioning\ Profiles
-          PP_PATH=$(ls "$PP_DIR"/*.mobileprovision 2>/dev/null | head -1)
-          if [[ -z "$PP_PATH" ]]; then
-            echo "::error::No provisioning profile found"
+          PP_PATH="$PP_DIR/${IOS_PROFILE_UUID}.mobileprovision"
+          if [[ -z "$IOS_PROFILE_UUID" || ! -f "$PP_PATH" ]]; then
+            echo "::error::Provisioning profile not found at $PP_PATH"
             exit 1
           fi
 
-          # 从 profile 提取完整 entitlements（已包含 NFC TAG）
+          # 从步骤 6 已解码的 profile plist 中提取完整 entitlements（已包含 NFC TAG）
           ENT_PLIST="$RUNNER_TEMP/resign-entitlements.plist"
-          security cms -D -i "$PP_PATH" -o "$RUNNER_TEMP/pp-decoded.plist"
-          /usr/libexec/PlistBuddy -c "Print :Entitlements" "$RUNNER_TEMP/pp-decoded.plist" -x > "$ENT_PLIST"
+          /usr/libexec/PlistBuddy -c "Print :Entitlements" "$RUNNER_TEMP/profile_decoded.plist" -x > "$ENT_PLIST"
           echo "Entitlements to apply:"
           cat "$ENT_PLIST"
 
