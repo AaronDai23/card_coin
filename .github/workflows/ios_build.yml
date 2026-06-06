@@ -278,16 +278,15 @@ jobs:
 
       # ── 9. Archive ────────────────────────────────────────────────────────────
       - name: Build Xcode Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           ARCHIVE_LOG="$RUNNER_TEMP/xcodebuild-archive.log"
           RESULT_BUNDLE_PATH="$RUNNER_TEMP/Runner.xcresult"
-
-          if [[ -z "${IOS_PROFILE_UUID:-}" ]]; then
-            echo "::error::IOS_PROFILE_UUID is empty. Provisioning profile import step may have failed."
-            exit 1
-          fi
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
           if ! xcodebuild \
             -workspace "${{ env.XCODE_WORKSPACE }}" \
@@ -297,9 +296,11 @@ jobs:
             -configuration "${{ env.XCODE_CONFIGURATION }}" \
             -archivePath "$ARCHIVE_PATH" \
             -resultBundlePath "$RESULT_BUNDLE_PATH" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_UUID" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
             cat "$ARCHIVE_LOG"
