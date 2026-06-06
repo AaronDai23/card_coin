@@ -275,6 +275,19 @@ class MethodChannelBlockchain extends BlockchainPlatform {
       final msg = resp.message ?? code;
       throw PlatformException(code: code, message: msg, details: resp.message);
     }
+
+    final scannedCardId = resp.data?.uid;
+    if (cardId != null &&
+        cardId.isNotEmpty &&
+        scannedCardId != null &&
+        scannedCardId.isNotEmpty &&
+        scannedCardId.toUpperCase() != cardId.toUpperCase()) {
+      throw PlatformException(
+        code: 'uid-mismatch',
+        message: 'WrongCardNumber',
+      );
+    }
+
     return _fromChipCard(resp.data!);
   }
 

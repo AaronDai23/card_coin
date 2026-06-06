@@ -67,7 +67,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
   }
 
   func scanCardAndDerive(currencyList: [CurrencyInfoMessage], ndefLink: String, cardId: String?, cardNo: String?, completion: @escaping (Result<CardMessage, Error>) -> Void) {
-    deriveCard(currencyList: currencyList, generateIfMissing: true, completion: completion)
+    deriveCard(currencyList: currencyList, generateIfMissing: true, expectedCardId: cardId, completion: completion)
   }
 
   func createWalletAndDerive(currencyList: [CurrencyInfoMessage], completion: @escaping (Result<CardMessage, Error>) -> Void) {
@@ -491,8 +491,14 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
 
   func isDualSim() throws -> Bool { false }
 
-  private func deriveCard(currencyList: [CurrencyInfoMessage], generateIfMissing: Bool, completion: @escaping (Result<CardMessage, Error>) -> Void) {
+  private func deriveCard(currencyList: [CurrencyInfoMessage], generateIfMissing: Bool, expectedCardId: String? = nil, completion: @escaping (Result<CardMessage, Error>) -> Void) {
     sessionManager.withSession(appletId: HdWalletApdu.hdWalletAid, operation: { channel, finish in
+      if let expectedCardId, !expectedCardId.isEmpty,
+         channel.cardId.caseInsensitiveCompare(expectedCardId) != .orderedSame {
+        finish(.failure(PigeonError(code: "uid-mismatch", message: "WrongCardNumber", details: channel.cardId)))
+        return
+      }
+
       let client = HdWalletCardClient(channel: channel)
       self.ensureKeyAndDerive(client: client, currencyList: currencyList, generateIfMissing: generateIfMissing) { outcome in
         switch outcome {

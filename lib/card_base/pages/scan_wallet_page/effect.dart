@@ -16,6 +16,7 @@ import '../../../http/address.dart';
 import '../../../http/http_manager.dart';
 import '../../../pigeons/blockchain_platform_interface.dart';
 import '../../../utils/hex_utils.dart';
+import '../../../widget/custom_alert_dialog.dart';
 import 'action.dart';
 import 'state.dart';
 
@@ -195,7 +196,8 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
       final isWrongCard =
           error.code == 'uid-mismatch' || error.message == 'WrongCardNumber';
       if (isWrongCard) {
-        showToast('Wrong card. Please use the correct card.');
+        await _showFrontErrorDialog(
+            ctx.context, 'Wrong card. Please use the correct card.');
         return;
       }
     }
@@ -270,4 +272,19 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
           'needShowInitStatus': ctx.state.needShowInitStatus
         });
   }
+}
+
+Future<void> _showFrontErrorDialog(BuildContext context, String message) async {
+  // Allow the native NFC overlay a moment to dismiss before presenting Flutter dialog.
+  await Future.delayed(const Duration(milliseconds: 180));
+  if (!context.mounted) return;
+  await showDialog(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: false,
+    builder: (_) => ZenggeTextAlertDialog(
+      message,
+      confirmText: 'Confirm',
+    ),
+  );
 }

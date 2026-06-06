@@ -85,6 +85,7 @@ jobs:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
@@ -97,6 +98,7 @@ jobs:
             IOS_CERTIFICATE_BASE64 \
             IOS_CERTIFICATE_PASSWORD \
             KEYCHAIN_PASSWORD \
+            IOS_PROVISIONING_PROFILE_BASE64 \
             APP_STORE_CONNECT_KEY_ID \
             APP_STORE_CONNECT_ISSUER_ID \
             APP_STORE_CONNECT_KEY_BASE64 \
@@ -219,6 +221,22 @@ jobs:
           security cms -D -i "$PROFILE_PATH" -o "$RUNNER_TEMP/profile_decoded.plist"
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile_decoded.plist")
           echo "Profile UUID: $PROFILE_UUID"
+
+          # 校验 profile 是否包含 NFC TAG entitlement，避免生成审核通过但运行时 NFC 不可用的包
+          PROFILE_NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.developer.nfc.readersession.formats" "$RUNNER_TEMP/profile_decoded.plist" 2>/dev/null || true)
+          if [[ -z "$PROFILE_NFC_FORMATS" || "$PROFILE_NFC_FORMATS" != *"TAG"* ]]; then
+            echo "::error::Provisioning Profile missing NFC entitlement com.apple.developer.nfc.readersession.formats=TAG"
+            echo "Decoded profile path: $RUNNER_TEMP/profile_decoded.plist"
+            exit 1
+          fi
+
+          # 校验 profile 的 AppID 与目标 Bundle ID 一致
+          PROFILE_APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$RUNNER_TEMP/profile_decoded.plist" 2>/dev/null || true)
+          if [[ "$PROFILE_APP_IDENTIFIER" != "G76B76R439.com.cardbase.app" ]]; then
+            echo "::error::Provisioning Profile application-identifier mismatch: $PROFILE_APP_IDENTIFIER"
+            echo "Expected: G76B76R439.com.cardbase.app"
+            exit 1
+          fi
 
           # 安装到 Xcode 标准路径
           PP_DIR=~/Library/MobileDevice/Provisioning\ Profiles
