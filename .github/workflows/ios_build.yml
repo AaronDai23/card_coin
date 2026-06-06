@@ -309,52 +309,6 @@ jobs:
 
           cat "$ARCHIVE_LOG" | xcpretty
 
-      - name: Validate Archive NFC entitlement
-        run: |
-          set -eo pipefail
-          APP_PATH="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app"
-          if [[ ! -d "$APP_PATH" ]]; then
-            echo "::error::Archived app not found at $APP_PATH"
-            exit 1
-          fi
-
-          RAW_ENT="$RUNNER_TEMP/archive-entitlements-raw.plist"
-          ENT_XML="$RUNNER_TEMP/archive-entitlements.plist"
-          CODESIGN_ERR="$RUNNER_TEMP/archive-codesign.stderr"
-          if ! codesign -d --entitlements :- "$APP_PATH" > "$RAW_ENT" 2> "$CODESIGN_ERR"; then
-            if grep -q "not signed at all" "$CODESIGN_ERR"; then
-              echo "::error::Archive app is unsigned. Export will drop custom entitlements like NFC."
-              cat "$CODESIGN_ERR"
-              exit 1
-            fi
-            echo "::error::codesign failed when reading archive entitlements"
-            cat "$CODESIGN_ERR"
-            exit 1
-          fi
-          if [[ ! -s "$RAW_ENT" ]]; then
-            echo "::error::Archive entitlements output is empty"
-            echo "codesign stderr:"
-            cat "$CODESIGN_ERR"
-            exit 1
-          fi
-          if ! plutil -lint "$RAW_ENT" >/dev/null 2>&1; then
-            echo "::error::Archive entitlements is not a valid plist"
-            cat "$RAW_ENT"
-            exit 1
-          fi
-
-          ENT_XML="$RUNNER_TEMP/archive-entitlements.plist"
-          plutil -convert xml1 "$RAW_ENT" -o "$ENT_XML"
-          NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :com.apple.developer.nfc.readersession.formats" "$ENT_XML" 2>/dev/null || true)
-          if [[ -z "$NFC_FORMATS" || "$NFC_FORMATS" != *"TAG"* ]]; then
-            echo "::error::Archive codesign entitlements missing NFC TAG format"
-            echo "Archive codesign entitlements:"
-            cat "$ENT_XML"
-            exit 1
-          fi
-
-          echo "Archive NFC entitlement check passed"
-
       # ── 10. Export IPA ────────────────────────────────────────────────────────
       - name: Export IPA
         run: |
@@ -375,6 +329,64 @@ jobs:
           fi
 
           cat "$EXPORT_LOG" | xcpretty
+
+      # ── 10a. Re-sign IPA with full entitlements from provisioning profile ────────
+      # Archive 阶段在 CI 上通常产出未签名产物（缺少 Development 证书），
+      # 导致 export 重签时 NFC 等自定义 entitlement 被丢弃。
+      # 此步骤从已安装的 Distribution profile 提取完整 entitlements，重签 IPA，确保 NFC 权限保留。
+      - name: Re-sign IPA with provisioning profile entitlements
+        run: |
+          set -eo pipefail
+
+          IPA_PATH=$(find "$RUNNER_TEMP/ipa" -maxdepth 1 -name "*.ipa" -print -quit)
+          if [[ -z "$IPA_PATH" || ! -f "$IPA_PATH" ]]; then
+            echo "::error::IPA not found for re-signing"
+            exit 1
+          fi
+
+          # 获取 Distribution 证书名称
+          CERT_NAME=$(security find-identity -v -p codesigning | grep "Apple Distribution" | head -1 | grep -o '"[^"]*"' | tr -d '"')
+          if [[ -z "$CERT_NAME" ]]; then
+            echo "::error::No Apple Distribution certificate found"
+            exit 1
+          fi
+          echo "Signing identity: $CERT_NAME"
+
+          # 找到已安装的 provisioning profile
+          PP_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+          PP_PATH=$(ls "$PP_DIR"/*.mobileprovision 2>/dev/null | head -1)
+          if [[ -z "$PP_PATH" ]]; then
+            echo "::error::No provisioning profile found"
+            exit 1
+          fi
+
+          # 从 profile 提取完整 entitlements（已包含 NFC TAG）
+          ENT_PLIST="$RUNNER_TEMP/resign-entitlements.plist"
+          security cms -D -i "$PP_PATH" -o "$RUNNER_TEMP/pp-decoded.plist"
+          /usr/libexec/PlistBuddy -c "Print :Entitlements" "$RUNNER_TEMP/pp-decoded.plist" -x > "$ENT_PLIST"
+          echo "Entitlements to apply:"
+          cat "$ENT_PLIST"
+
+          # 解包 IPA
+          RESIGN_DIR=$(mktemp -d)
+          unzip -q "$IPA_PATH" -d "$RESIGN_DIR"
+          APP_PATH=$(find "$RESIGN_DIR/Payload" -maxdepth 1 -name "*.app" -print -quit)
+
+          # 更新 embedded.mobileprovision
+          cp "$PP_PATH" "$APP_PATH/embedded.mobileprovision"
+
+          # 先签 Frameworks（由内向外）
+          find "$APP_PATH/Frameworks" -name "*.framework" -exec codesign -f -s "$CERT_NAME" {} \; 2>/dev/null || true
+          find "$APP_PATH/PlugIns" -name "*.appex" -exec codesign -f -s "$CERT_NAME" {} \; 2>/dev/null || true
+
+          # 用完整 entitlements 重签 App 主包
+          codesign -f -s "$CERT_NAME" --entitlements "$ENT_PLIST" "$APP_PATH"
+          codesign --verify --deep "$APP_PATH" && echo "Signature OK"
+
+          # 重新打包
+          rm "$IPA_PATH"
+          (cd "$RESIGN_DIR" && zip -qr "$IPA_PATH" Payload/)
+          echo "Re-signed IPA: $IPA_PATH"
 
       - name: Validate IPA NFC entitlement
         run: |
