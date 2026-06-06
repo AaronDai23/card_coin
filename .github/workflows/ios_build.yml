@@ -221,6 +221,7 @@ jobs:
           security cms -D -i "$PROFILE_PATH" -o "$RUNNER_TEMP/profile_decoded.plist"
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile_decoded.plist")
           echo "Profile UUID: $PROFILE_UUID"
+          echo "IOS_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
 
           # 校验 profile 是否包含 NFC TAG entitlement，避免生成审核通过但运行时 NFC 不可用的包
           PROFILE_NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.developer.nfc.readersession.formats" "$RUNNER_TEMP/profile_decoded.plist" 2>/dev/null || true)
@@ -249,7 +250,7 @@ jobs:
             ios/ExportOptions.plist
           echo "ExportOptions.plist updated with UUID: $PROFILE_UUID"
 
-      # ── 7. 配置 App Store Connect API Key（archive 自动签名用） ──────────────
+      # ── 7. 配置 App Store Connect API Key（用于上传，可保留） ─────────────────
       - name: Setup App Store Connect API key
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -277,15 +278,16 @@ jobs:
 
       # ── 9. Archive ────────────────────────────────────────────────────────────
       - name: Build Xcode Archive
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
-          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
           ARCHIVE_LOG="$RUNNER_TEMP/xcodebuild-archive.log"
           RESULT_BUNDLE_PATH="$RUNNER_TEMP/Runner.xcresult"
+
+          if [[ -z "${IOS_PROFILE_UUID:-}" ]]; then
+            echo "::error::IOS_PROFILE_UUID is empty. Provisioning profile import step may have failed."
+            exit 1
+          fi
 
           if ! xcodebuild \
             -workspace "${{ env.XCODE_WORKSPACE }}" \
@@ -295,11 +297,9 @@ jobs:
             -configuration "${{ env.XCODE_CONFIGURATION }}" \
             -archivePath "$ARCHIVE_PATH" \
             -resultBundlePath "$RESULT_BUNDLE_PATH" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_UUID" \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
             cat "$ARCHIVE_LOG"
