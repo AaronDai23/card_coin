@@ -278,15 +278,11 @@ jobs:
 
       # ── 9. Archive ────────────────────────────────────────────────────────────
       - name: Build Xcode Archive
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           ARCHIVE_LOG="$RUNNER_TEMP/xcodebuild-archive.log"
           RESULT_BUNDLE_PATH="$RUNNER_TEMP/Runner.xcresult"
-          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
           if ! xcodebuild \
             -workspace "${{ env.XCODE_WORKSPACE }}" \
@@ -296,10 +292,6 @@ jobs:
             -configuration "${{ env.XCODE_CONFIGURATION }}" \
             -archivePath "$ARCHIVE_PATH" \
             -resultBundlePath "$RESULT_BUNDLE_PATH" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
@@ -329,6 +321,36 @@ jobs:
           fi
 
           cat "$EXPORT_LOG" | xcpretty
+
+      - name: Validate IPA NFC entitlement
+        run: |
+          set -eo pipefail
+          IPA_PATH=$(find "$RUNNER_TEMP/ipa" -maxdepth 1 -name "*.ipa" -print -quit)
+          if [[ -z "$IPA_PATH" || ! -f "$IPA_PATH" ]]; then
+            echo "::error::IPA not found under $RUNNER_TEMP/ipa"
+            exit 1
+          fi
+
+          TMP_DIR=$(mktemp -d)
+          unzip -q "$IPA_PATH" -d "$TMP_DIR"
+          APP_PATH=$(find "$TMP_DIR/Payload" -maxdepth 1 -name "*.app" -print -quit)
+          if [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
+            echo "::error::App bundle not found in IPA payload"
+            exit 1
+          fi
+
+          ENT_XML="$TMP_DIR/app-entitlements.plist"
+          codesign -d --entitlements :- "$APP_PATH" 2>/dev/null | plutil -convert xml1 - -o "$ENT_XML"
+
+          NFC_FORMATS=$(/usr/libexec/PlistBuddy -c "Print :com.apple.developer.nfc.readersession.formats" "$ENT_XML" 2>/dev/null || true)
+          if [[ -z "$NFC_FORMATS" || "$NFC_FORMATS" != *"TAG"* ]]; then
+            echo "::error::IPA codesign entitlements missing NFC TAG format"
+            echo "Codesign entitlements:" 
+            cat "$ENT_XML"
+            exit 1
+          fi
+
+          echo "NFC entitlement check passed"
 
       # ── 11. 上传 IPA 为构建产物 ────────────────────────────────────────────────
       - name: Upload IPA artifact
