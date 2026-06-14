@@ -67,7 +67,7 @@ android {
         targetSdkVersion 35
 
         versionCode 282
-        versionName '2.1.8'
+        versionName '2.1.9'
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
             //, 'x86', 'armeabi-v7a', 'x86_64', 'arm64-v8a’
