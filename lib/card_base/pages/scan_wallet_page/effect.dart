@@ -125,17 +125,17 @@ Future<void> _fetchAndApplyCurrencyList(Context<ScanWalletState> ctx,
   }
 
   if (currencyList.isEmpty) {
-    currencyList.addAll([
-      CurrencyInfo(
-          imageUrl: '',
-          networkName: 'Bitcoin',
-          currencyData: CurrencyData('btc', '', 'Bitcoin', 'BTC', 'BTC')),
-      CurrencyInfo(
-          imageUrl: '',
-          networkName: 'Tron',
-          currencyData: CurrencyData('tron', '', 'TRON', 'TRX', 'tron')),
-    ]);
-    ctx.state.needBTC = true;
+    // currencyList.addAll([
+    //   CurrencyInfo(
+    //       imageUrl: '',
+    //       networkName: 'Bitcoin',
+    //       currencyData: CurrencyData('btc', '', 'Bitcoin', 'BTC', 'BTC')),
+    //   CurrencyInfo(
+    //       imageUrl: '',
+    //       networkName: 'Tron',
+    //       currencyData: CurrencyData('tron', '', 'TRON', 'TRX', 'tron')),
+    // ]);
+    // ctx.state.needBTC = true;
   } else {
     CurrencyInfo? btcInfo = currencyList.firstWhereOrNull(
         (element) => (element.currencyData.id.toLowerCase() == 'btc'));
@@ -185,6 +185,11 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
     await _refreshCompleter!.future;
   }
 
+  if (ctx.state.defaultCurrencyList.isEmpty) {
+    showToast('智能卡 ${ctx.state.cardId} 未分配货币分组，请先为其分配一个货币分组才能扫卡');
+    return;
+  }
+
   CardMessage cardMessage;
   String? cardNo = await LocalStorage.getCardNo(ctx.state.cardId);
   try {
@@ -196,8 +201,19 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
       final isWrongCard =
           error.code == 'uid-mismatch' || error.message == 'WrongCardNumber';
       if (isWrongCard) {
+        // iOS system NFC sheet already shows the error; no Flutter dialog needed.
+        return;
+      }
+      // NFC communication errors: card moved / removed mid-scan.
+      // The iOS NFC sheet is already dismissed by the system in this case,
+      // so no delay is needed before showing the Flutter dialog.
+      final msg = error.message ?? '';
+      if (_isNfcCommunicationError(msg)) {
         await _showFrontErrorDialog(
-            ctx.context, 'Wrong card. Please use the correct card.');
+          ctx.context,
+          'Card read failed. Please hold the card steady and try again.',
+          delay: Duration.zero,
+        );
         return;
       }
     }
@@ -274,9 +290,18 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
   }
 }
 
-Future<void> _showFrontErrorDialog(BuildContext context, String message) async {
-  // Allow the native NFC overlay a moment to dismiss before presenting Flutter dialog.
-  await Future.delayed(const Duration(milliseconds: 180));
+Future<void> _showFrontErrorDialog(
+  BuildContext context,
+  String message, {
+  // Default 180ms lets the iOS NFC sheet's error-dismiss animation (~0.5s)
+  // mostly complete before the Flutter dialog takes focus.
+  // Pass Duration.zero when the NFC session is already invalidated by the
+  // system (e.g. tag-lost errors) so the dialog appears immediately.
+  Duration delay = const Duration(milliseconds: 180),
+}) async {
+  if (delay > Duration.zero) {
+    await Future.delayed(delay);
+  }
   if (!context.mounted) return;
   await showDialog(
     context: context,
@@ -287,4 +312,13 @@ Future<void> _showFrontErrorDialog(BuildContext context, String message) async {
       confirmText: 'Confirm',
     ),
   );
+}
+
+bool _isNfcCommunicationError(String message) {
+  return message.contains('Tag response error') ||
+      message.contains('no response') ||
+      message.contains('Tag Lost') ||
+      message.contains('tag lost') ||
+      message.contains('readerTransceive') ||
+      message.contains('Session timeout');
 }

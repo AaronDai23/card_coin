@@ -5,6 +5,7 @@ import '../../../bean/card_info_bean.dart';
 enum ResetInfoAction {
   action,
   onResetFactorySettings,
+  onCleanCache,
   loadCardInfo,
   loadSuccess,
   loadFailure,
@@ -17,6 +18,10 @@ class ResetInfoActionCreator {
 
   static Action onResetFactorySettings() {
     return const Action(ResetInfoAction.onResetFactorySettings);
+  }
+
+  static Action onCleanCache() {
+    return const Action(ResetInfoAction.onCleanCache);
   }
 
   static Action onLoadCardInfo() {

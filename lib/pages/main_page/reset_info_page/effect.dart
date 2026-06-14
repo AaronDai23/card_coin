@@ -8,6 +8,7 @@ Effect<ResetInfoState>? buildEffect() {
   return combineEffects(<Object, Effect<ResetInfoState>>{
     Lifecycle.initState: _onInit,
     ResetInfoAction.onResetFactorySettings: _onResetFactorySettings,
+    ResetInfoAction.onCleanCache: _onCleanCache,
   });
 }
 
@@ -22,6 +23,15 @@ void _onResetFactorySettings(Action action, Context<ResetInfoState> ctx) {
       'cardId': ctx.state.cardInfo.uuid,
       'isPinSet': ctx.state.cardInfo.pinSet,
       'cardNo': ctx.state.cardNo,
+    },
+  );
+}
+
+void _onCleanCache(Action action, Context<ResetInfoState> ctx) {
+  Navigator.of(ctx.context).pushNamed(
+    'cleanCachePage',
+    arguments: {
+      'cardId': ctx.state.cardInfo.uuid,
     },
   );
 }

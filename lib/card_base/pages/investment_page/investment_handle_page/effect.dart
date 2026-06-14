@@ -5,6 +5,7 @@ import 'package:card_coin/card_base/bean/investment_info.dart';
 import 'package:card_coin/card_base/bean/investment_interval.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
+import 'package:card_coin/managers/default_stablecoin_manager.dart';
 import 'package:card_coin/widget/custom_alert_dialog.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart' hide Action;
@@ -72,6 +73,7 @@ Future<void> _onLoadPreData(
         NetworkAddress.investmentSmartCardCrypto,
         queryParameters: {'uid': ctx.state.uid});
     if (result1.isSuccess) {
+      final stablecoin = await DefaultStablecoinManager.getCachedOrFallback();
       List<dynamic> list = result1.data;
 
       print('investmentSmartCardCrypto:${list.toString()}');
@@ -79,7 +81,8 @@ Future<void> _onLoadPreData(
           .map((e) {
             return CoinInfo.fromJson(e);
           })
-          .where((element) => element.code != "USDT")
+          .where((element) => !DefaultStablecoinManager.equalsIgnoreCase(
+              element.code, stablecoin))
           .toList();
 
       ctx.state.coinlist = plist;
@@ -230,6 +233,7 @@ Future<void> _onForecastLoadData(
   if (!_checkMount(action, ctx)) {
     return;
   }
+  final stablecoin = await DefaultStablecoinManager.getCachedOrFallback();
   ctx.state.isShowForecast = true;
 
   var smartCardCryptoId = ctx.state.coinInfo!.id;
@@ -261,7 +265,7 @@ Future<void> _onForecastLoadData(
                 ctx.state.investDetail!.investmentConfig!
                         .investmentAssetDestination ==
                     'CENTRALIZED'))
-        ? "USDT"
+        ? stablecoin
         : ctx.state.investDetail!.assetFrom,
     "assetToType": "CRYPTO",
     "assetToAddress": ctx.state.coinInfo!.address!,
@@ -406,6 +410,7 @@ Future<void> _onEditAction(
 
 _onAddOrEditAction(
     Action action, Context<InvestmentHandleState> ctx, bool isAdd) async {
+  final stablecoin = await DefaultStablecoinManager.getCachedOrFallback();
   if (ctx.state.investmentName.isEmpty) {
     showToast("Name can't empty", duration: const Duration(milliseconds: 2000));
     print("_onPressedActionerrorTip0:${ctx.state.investmentName}");
@@ -445,7 +450,7 @@ _onAddOrEditAction(
     'uid': ctx.state.uid,
     'name': ctx.state.investmentName,
     "assetFromType": "CRYPTO",
-    "assetFrom": "USDT",
+    "assetFrom": stablecoin,
     "assetToType": "CRYPTO",
     "smartCardCryptoId": smartCardCryptoId,
     "intervalType": intervalType,

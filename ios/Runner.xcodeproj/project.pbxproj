@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0714BD382CEBAEB3000F3FD1 /* CardBaseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0714BD372CEBAEB3000F3FD1 /* CardBaseModel.swift */; };
 		0719ED962CE9FC0A0062E5AD /* Generated.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 0719ED952CE9FC0A0062E5AD /* Generated.xcconfig */; };
+		07CC11BB2CF39E5A00280CC7 /* ChipCoreBlockchainApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07CC11BA2CF39E5A00280CC7 /* ChipCoreBlockchainApi.swift */; };
 		0796D8DF2CFCAA9C00E794A5 /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0796D8DE2CFCAA9C00E794A5 /* Messages.swift */; };
 		07F534762CF39E5A00280AA7 /* PigeonFlutterApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07F534752CF39E5A00280AA7 /* PigeonFlutterApi.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
@@ -47,6 +48,7 @@
 		0714BD372CEBAEB3000F3FD1 /* CardBaseModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CardBaseModel.swift; sourceTree = "<group>"; };
 		0719ED952CE9FC0A0062E5AD /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		07716CCE2CE8504F00DDCD2D /* Runner.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		07CC11BA2CF39E5A00280CC7 /* ChipCoreBlockchainApi.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChipCoreBlockchainApi.swift; sourceTree = "<group>"; };
 		0796D8DE2CFCAA9C00E794A5 /* Messages.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Messages.swift; sourceTree = "<group>"; };
 		07F534752CF39E5A00280AA7 /* PigeonFlutterApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PigeonFlutterApi.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
@@ -122,6 +124,7 @@
 			isa = PBXGroup;
 			children = (
 				97C146FA1CF9000F007C117D /* Main.storyboard */,
+				07CC11BA2CF39E5A00280CC7 /* ChipCoreBlockchainApi.swift */,
 				0796D8DE2CFCAA9C00E794A5 /* Messages.swift */,
 				07F534752CF39E5A00280AA7 /* PigeonFlutterApi.swift */,
 				0719ED8E2CE9BB6B0062E5AD /* model */,
@@ -329,6 +332,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				07CC11BB2CF39E5A00280CC7 /* ChipCoreBlockchainApi.swift in Sources */,
 				0796D8DF2CFCAA9C00E794A5 /* Messages.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				0714BD382CEBAEB3000F3FD1 /* CardBaseModel.swift in Sources */,
@@ -416,7 +420,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 280;
 				DEVELOPMENT_TEAM = G76B76R439;
@@ -559,7 +563,7 @@
 				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 280;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -596,7 +600,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 280;
 				DEVELOPMENT_TEAM = G76B76R439;

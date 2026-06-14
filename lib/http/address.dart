@@ -346,5 +346,8 @@ class NetworkAddress {
 
   static const String getKLines = '/service-rest/m/crypto/kline'; // k线获取
   static const String currencyAddressDetail =
-      '/service-rest/m/smartCard/address/detail';
+      '/service-rest/m/smartCard/address/detail'; // 获取货币地址详情
+
+  static const String defaultStablecoin =
+      '/service-rest/m/crypto/defaultStablecoin'; // 获取默认稳定币
 }

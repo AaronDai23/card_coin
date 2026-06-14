@@ -1,0 +1,45 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        // {
+        //     "name": "card_coin",
+        //     "request": "launch",
+        //     "type": "dart",
+        //     "program": "lib/main.dart" ,
+        //     "args": [
+        //         "--flavor",
+        //         "card_coin"
+        //     ]     // 自定义入口在 main.dart文
+        // },
+        // {
+        //     "name": "card_coin",
+        //     "request": "launch",
+        //     "type": "dart",
+        //     "program": "lib/main_pro.dart" ,
+        //     "args": [
+        //         "--flavor",
+        //         "card_coin_pro"
+        //     ]
+        //          // 自定义入口在 main.dart文
+        // },
+        {
+            "name": "card_coin",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_google.dart" ,
+            "args": [
+                "--flavor",
+                "card_coin_google",
+                "--debug"
+
+            ]  
+                 // 自定义入口在 main.dart文
+        },
+       
+    ]
+
+}

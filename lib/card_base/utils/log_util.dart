@@ -1,5 +1,3 @@
-import 'package:card_coin/http/address.dart';
-import 'package:card_coin/http/http_manager.dart';
 import 'package:logger/logger.dart';
 
 class LogUtils {

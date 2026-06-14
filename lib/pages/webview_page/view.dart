@@ -221,7 +221,7 @@ Widget buildView(
                                                   .inMilliseconds
                                               : -1;
                                           print('[WebviewTiming] onProgress '
-                                              '${progress}% +${progElapsed}ms');
+                                              '$progress% +${progElapsed}ms');
                                         }
                                         dispatch(WebviewActionCreator
                                             .onUpdateProgress(progress / 100));

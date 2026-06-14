@@ -43,6 +43,6 @@ class ResetFactorySettingsState
 ResetFactorySettingsState initState(Map<String, dynamic>? args) {
   return ResetFactorySettingsState()
     ..cardId = args!['cardId']
-    ..cardNo = args!['cardNo'] ?? ''
+    ..cardNo = args['cardNo'] ?? ''
     ..isPinSet = args['isPinSet'];
 }

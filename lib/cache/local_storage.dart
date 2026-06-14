@@ -30,6 +30,7 @@ class LocalStorage {
   static const cardResetCount = "card_reset_count";
   static const cardSwitched = "card_switched_";
   static const customerSmartCardId = "customerSmartCardId_";
+  static const defaultStablecoinKey = "default_stablecoin_key";
 
   static UserInfo? _userInfo;
   static List<PageButtonInfo>? _buttonList;
@@ -47,6 +48,14 @@ class LocalStorage {
   static Future<bool> saveString(String key, String value) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.setString(key, value);
+  }
+
+  static Future<String?> getDefaultStablecoin() async {
+    return getString(defaultStablecoinKey);
+  }
+
+  static Future<bool> saveDefaultStablecoin(String stablecoin) async {
+    return saveString(defaultStablecoinKey, stablecoin);
   }
 
   static Future<List<String>?> getStringList(String key) async {

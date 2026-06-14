@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:card_coin/card_base/utils/log_util.dart';
 import 'package:card_coin/catcherror/app_catch_error.dart';
 import 'package:card_coin/observability/otel_service.dart';
-import 'package:card_coin/resource/display_strings_main.dart';
 import 'package:card_coin/resource/display_strings_main_pro.dart';
 // import 'package:card_coin/resource/display_strings_main_google_lite.dart';
 import 'package:card_coin/utils/startup_time.dart';

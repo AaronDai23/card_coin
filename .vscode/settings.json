@@ -1,0 +1,13 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "cmake.sourceDirectory": "/Users/daipeiqiong/Documents/work/jianzhi/app/demo/card_coin/linux",
+    "files.associations": {
+        "cryptoprices": "cpp",
+        "cryptoprice": "cpp",
+        "system_error": "cpp",
+        "typeinfo": "cpp",
+        "chrono": "cpp"
+    },
+    "git.ignoreLimitWarning": true,
+    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms100m -Xlog:disable"
+}

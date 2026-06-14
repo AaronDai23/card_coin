@@ -9,7 +9,7 @@ class PickerLocalizationsDelegate
   const PickerLocalizationsDelegate();
 
   static const PickerLocalizationsDelegate delegate =
-      const PickerLocalizationsDelegate();
+      PickerLocalizationsDelegate();
 
   @override
   bool isSupported(Locale locale) =>
@@ -18,7 +18,7 @@ class PickerLocalizationsDelegate
   @override
   Future<PickerLocalizations> load(Locale locale) {
     return SynchronousFuture<PickerLocalizations>(
-        new PickerLocalizations(locale));
+        PickerLocalizations(locale));
   }
 
   @override

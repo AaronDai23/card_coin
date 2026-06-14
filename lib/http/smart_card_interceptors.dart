@@ -50,6 +50,15 @@ class SmartCardInterceptors extends InterceptorsWrapper {
     return elapsed != null && elapsed <= 15000;
   }
 
+  String _buildLanguageCode(Locale? locale) {
+    if (locale == null) return 'en_US';
+    final countryCode = locale.countryCode;
+    if (countryCode == null || countryCode.isEmpty) {
+      return locale.languageCode;
+    }
+    return '${locale.languageCode}_$countryCode';
+  }
+
   String? _matchStartupCriticalLabel(String path) {
     for (final entry in _startupCriticalPathLabels.entries) {
       if (path.contains(entry.key)) {
@@ -134,7 +143,11 @@ class SmartCardInterceptors extends InterceptorsWrapper {
 
     var stringResource =
         AppConfig.of(navigatorKey.currentContext!).stringResource;
-
+    final uid = await LocalStorage.getCardUuid();
+    final cachedLocale = await LocalStorage.getLocale();
+    // 请求语言仅跟随用户已保存的语言；未保存时强制英文，避免首启被系统语言带偏。
+    final effectiveLocale = cachedLocale ?? const Locale('en', 'US');
+    final language = _buildLanguageCode(effectiveLocale);
     final Map<String, dynamic> requestHeaders = {
       'Authorization': token,
       'timestamp': timestamp,
@@ -145,6 +158,8 @@ class SmartCardInterceptors extends InterceptorsWrapper {
       'App-Version': packageInfo.version,
       'App-Version-Code': packageInfo.buildNumber,
       'App-Package-Name': packageInfo.packageName,
+      'X-Accept-UID': uid ?? '',
+      'X-Accept-Language': language,
       'X-Trace-Id': HexUtils.generateRandomId(), // 10 位随机字符串，作为每次请求的唯一标识
     };
     options.headers.addAll(requestHeaders);
@@ -162,14 +177,6 @@ class SmartCardInterceptors extends InterceptorsWrapper {
     // -----------------------------------------------------------------------
     var parameters = options.queryParameters;
 
-    GlobalState state = GlobalStore.store.getState();
-    var locale = state.languageLocale;
-    String language;
-    if (locale == null) {
-      language = 'en_US';
-    } else {
-      language = locale.toString();
-    }
     parameters['language'] = language;
     parameters['module'] = "CLIENT";
 

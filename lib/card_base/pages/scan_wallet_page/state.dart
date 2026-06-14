@@ -70,6 +70,6 @@ ScanWalletState initState(Map<String, dynamic>? args) {
     ..cardId = cardId
     ..needShowInitStatus = needShowInitStatus
     ..loadStatus = LoadType.loadSuccess
-    ..defaultCurrencyList = cached ?? _buildFallbackCurrencyList()
+    ..defaultCurrencyList = cached ?? []
     ..needBTC = true;
 }

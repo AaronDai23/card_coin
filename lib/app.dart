@@ -32,6 +32,7 @@ import 'package:card_coin/custom_widget/load_image.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:card_coin/http/result_data.dart';
+import 'package:card_coin/managers/default_stablecoin_manager.dart';
 import 'package:card_coin/pages/add_bless_page/page.dart';
 import 'package:card_coin/pages/app_version_page/page.dart';
 import 'package:card_coin/pages/login_page/page.dart';
@@ -91,6 +92,7 @@ import 'card_base/pages/activate_detail_page/page.dart';
 import 'card_base/pages/bind_email_page/page.dart';
 import 'card_base/pages/bind_phone_page/page.dart';
 import 'card_base/pages/card_wallet_list_page/page.dart';
+import 'card_base/pages/clean_cache_page/page.dart';
 import 'card_base/pages/common_info_page/page.dart';
 import 'card_base/pages/crop_image_page/page.dart';
 import 'card_base/pages/device_activate_page/page.dart';
@@ -175,6 +177,7 @@ class AppRoute {
     'createNewWalletPage',
     'resetInfoPage',
     'resetFactorySettingsPage',
+    'cleanCachePage',
     'backupDataPage',
     'deviceSettingsPage',
     'createBackupPage',
@@ -278,6 +281,7 @@ class AppRoute {
         'createNewWalletPage': CreateNewWalletPage(),
         'resetInfoPage': ResetInfoPage(),
         'resetFactorySettingsPage': ResetFactorySettingsPage(),
+        'cleanCachePage': CleanCachePage(),
         'backupDataPage': BackupDataPage(),
         'deviceSettingsPage': DeviceSettingsPage(),
         'createBackupPage': CreateBackupPage(),
@@ -477,7 +481,15 @@ Future<void> mainCommon() async {
   var locale = await LocalStorage.getLocale();
   if (locale != null) {
     GlobalStore.store.dispatch(GlobalActionCreator.onChangeLanguage(locale));
+  } else {
+    const defaultLocale = Locale('en', 'US');
+    LocalStorage.saveLocale(defaultLocale);
+    GlobalStore.store
+        .dispatch(GlobalActionCreator.onChangeLanguage(defaultLocale));
   }
+
+  // Startup async task: refresh default stablecoin every launch, but do not block app flow.
+  unawaited(DefaultStablecoinManager.refreshFromServer());
 
   DeepLinkHandler.initListener();
   StartupTime.printElapsed('main_common_ready');
@@ -785,20 +797,12 @@ class _MyAppState extends State<MyApp> {
         ],
         localeResolutionCallback:
             (Locale? locale, Iterable<Locale> supportedLocales) {
-          if (locale != null) {
-            var languageLocale = GlobalStore.store.getState().languageLocale;
-            //用户未选择语言时随系统默认
-            if (languageLocale == null) {
-              GlobalStore.store
-                  .dispatch(GlobalActionCreator.onChangeLanguage(locale));
-            } else {
-              GlobalStore.store.dispatch(
-                  GlobalActionCreator.onChangeLanguage(languageLocale));
-              return languageLocale;
-            }
-            return locale;
-          }
-          return null;
+          var languageLocale = GlobalStore.store.getState().languageLocale;
+          // 用户未选择语言时默认英文，不跟随系统语言。
+          languageLocale ??= const Locale('en', 'US');
+          GlobalStore.store
+              .dispatch(GlobalActionCreator.onChangeLanguage(languageLocale));
+          return languageLocale;
         },
         onGenerateRoute: (RouteSettings settings) {
           // 全局路由检查

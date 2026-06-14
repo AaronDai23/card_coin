@@ -136,7 +136,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       self.ensureKeyAndDerive(client: client, currencyList: currencyList, generateIfMissing: false) { outcome in
         switch outcome {
         case .success(let snapshot):
-          self.state.mergeCurrencies(snapshot.currencies)
+          self.state.mergeCurrencies(snapshot.currencies.compactMap { $0 })
           finish(.success(true))
         case .failure(let error):
           finish(.failure(error))
@@ -191,13 +191,13 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
         let nonce = try ChainClient.ethNonce(rpc: rpc, address: from)
         let gasPrice: BigUInt
         if let gp = msg.gasPrice, gp.hasPrefix("0x") {
-          gasPrice = BigUInt(gp.dropFirst(2), radix: 16) ?? (try ChainClient.ethGasPrice(rpc: rpc))
+          gasPrice = try BigUInt(String(gp.dropFirst(2)), radix: 16) ?? ChainClient.ethGasPrice(rpc: rpc)
         } else if let gp = msg.gasPrice, let gpInt = BigUInt(gp) {
           gasPrice = gpInt
         } else {
           gasPrice = try ChainClient.ethGasPrice(rpc: rpc)
         }
-        let gasLimit = msg.gasLimit.flatMap { BigUInt($0) } ?? 21000
+        let gasLimit = msg.gasLimit.flatMap { BigUInt($0) } ?? BigUInt(21000)
         let chainId = try ChainClient.ethChainId(rpc: rpc)
         let value = EthEncoder.parseEthValue(msg.sumToSend)
         let signingHash = EthEncoder.buildLegacyTxHash(nonce: nonce, gasPrice: gasPrice, gasLimit: gasLimit, to: to, value: value, data: Data(), chainId: chainId)
@@ -217,7 +217,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
             case .success(let sigBytes):
               do {
                 let (r, s, recId) = try EthEncoder.parseAndRecoverSignature(sigBytes: sigBytes, msgHash: signingHash, pubKey: pubKeyData)
-                let v = chainId * 2 + 35 + BigUInt(recId)
+                let v = chainId * BigUInt(2) + BigUInt(35) + BigUInt(recId)
                 let rawTx = EthEncoder.encodeLegacySignedTx(nonce: nonce, gasPrice: gasPrice, gasLimit: gasLimit, to: to, value: value, data: Data(), v: v, r: r, s: s)
                 finish(.success(rawTx))
               } catch {
@@ -261,7 +261,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
           DispatchQueue.main.async { completion(.failure(PigeonError(code: "no-utxo", message: "该地址无可用 UTXO", details: nil))) }
           return
         }
-        let feeRate = msg.gasPrice.flatMap { UInt64($0) } ?? (try ChainClient.fetchBtcFeeRate(isTest: isTest))
+        let feeRate = try msg.gasPrice.flatMap { UInt64($0) } ?? ChainClient.fetchBtcFeeRate(isTest: isTest)
         let valueSat = BtcEncoder.parseAmount(msg.sumToSend)
         let (selectedUtxos, changeSat) = try BtcEncoder.selectUtxos(utxos: utxos, valueSat: valueSat, to: to, from: from, feeRateSatPerVb: feeRate)
         var outputs: [(address: String, value: UInt64)] = [(to, valueSat)]
@@ -495,7 +495,10 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
     sessionManager.withSession(appletId: HdWalletApdu.hdWalletAid, operation: { channel, finish in
       if let expectedCardId, !expectedCardId.isEmpty,
          channel.cardId.caseInsensitiveCompare(expectedCardId) != .orderedSame {
-        finish(.failure(PigeonError(code: "uid-mismatch", message: "WrongCardNumber", details: channel.cardId)))
+        // Use "pin-required" code so the SDK calls session.invalidate() with no error message
+        // (silent, fast ~0.3 s dismiss) instead of invalidate(errorMessage:) which shows text
+        // for 1.5 s. The completion block below translates the sentinel back to "uid-mismatch".
+        finish(.failure(PigeonError(code: "pin-required", message: "_uid_mismatch_", details: channel.cardId)))
         return
       }
 
@@ -524,7 +527,14 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success:
         completion(.failure(PigeonError(code: "invalid-response", message: "deriveCard 返回类型错误", details: nil)))
       case .failure(let error):
-        completion(.failure(error))
+        // Translate sentinel back to uid-mismatch (sentinel was used to get silent NFC close).
+        if let pigeonErr = error as? PigeonError,
+           pigeonErr.code == "pin-required",
+           pigeonErr.message == "_uid_mismatch_" {
+          completion(.failure(PigeonError(code: "uid-mismatch", message: "WrongCardNumber", details: pigeonErr.details)))
+        } else {
+          completion(.failure(self.friendlyNfcTagLostError(error)))
+        }
       }
     })
   }
@@ -535,7 +545,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let status):
         self.ensureMasterKey(client: client, status: status, generateIfMissing: generateIfMissing, currencies: currencyList, completion: completion)
       case .failure(let error):
-        completion(.failure(error))
+        completion(.failure(self.friendlyNfcTagLostError(error)))
       }
     }
   }
@@ -568,13 +578,48 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
               currencies: derivedCurrencies
             )))
           case .failure(let error):
-            completion(.failure(error))
+            completion(.failure(self.friendlyNfcTagLostError(error)))
           }
         }
       case .failure(let error):
-        completion(.failure(error))
+        completion(.failure(self.friendlyNfcTagLostError(error)))
       }
     }
+  }
+
+  /// Translates NFC tag-lost / card-moved errors into a user-friendly English message.
+  ///
+  /// Must handle two shapes of input:
+  /// 1. Raw NFCReaderError (before IOSNfcErrorMapper runs) — check localizedDescription.
+  /// 2. PigeonError already mapped by the SDK — check code / message fields.
+  private func friendlyNfcTagLostError(_ error: Error) -> Error {
+    let friendly = PigeonError(
+      code: "nfc-tag-lost",
+      message: "Card moved — please hold the card still and try again.",
+      details: nil
+    )
+    if let pigeonErr = error as? PigeonError {
+      // SDK mapped it to nfc-tag-lost (e.g. tagConnectionLost) — normalise message.
+      if pigeonErr.code == "nfc-tag-lost" { return friendly }
+      // SDK mapped it to nfc-io with raw localised description (e.g. tagResponseError).
+      if pigeonErr.code == "nfc-io" {
+        let msg = pigeonErr.message ?? ""
+        if msg.contains("Tag response error") || msg.contains("no response") ||
+           msg.contains("tag response") || msg.contains("Tag Lost") ||
+           msg.contains("readerTransceive") || msg.contains("terminated") {
+          return friendly
+        }
+      }
+      return error
+    }
+    // Raw NFCReaderError — match by localised description (English locale assumed).
+    let desc = error.localizedDescription
+    if desc.contains("No response from tag") || desc.contains("Tag response error") ||
+       desc.contains("tag response error") || desc.contains("no response") ||
+       desc.contains("Tag Lost") || desc.contains("readerTransceive") {
+      return friendly
+    }
+    return error
   }
 
   private func deriveCurrencies(client: HdWalletCardClient, currencies: [CurrencyInfoMessage], completion: @escaping (Result<[CurrencyInfoMessage?], Error>) -> Void) {
@@ -594,9 +639,12 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
         case .success(let derived):
           let address = spec.makeAddress(publicKey: derived.publicKey, isTest: currency.isTest == 1)
           output.append(currency.copyWith(publicKey: derived.publicKey, chainCode: derived.chainCode, address: address))
+          // 两次 deriveKey APDU 之间留 50ms，让卡片 RF 接口完成内部清理后再接收下一条命令。
+          // 使用 usleep 在当前队列（NFC session 私有队列）同步等待，避免切换到全局线程导致 APDU 通信失败。
+          usleep(50_000)
           next()
         case .failure(let error):
-          completion(.failure(error))
+          completion(.failure(self.friendlyNfcTagLostError(error)))
         }
       }
     }
@@ -626,9 +674,12 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
             publicKey: derived.publicKey.hexString,
             address: spec.makeAddress(publicKey: derived.publicKey, isTest: false)
           ))
+          // 两次 deriveKey APDU 之间留 50ms，让卡片 RF 接口完成内部清理后再接收下一条命令。
+          // 使用 usleep 在当前队列（NFC session 私有队列）同步等待，避免切换到全局线程导致 APDU 通信失败。
+          usleep(50_000)
           next()
         case .failure(let error):
-          completion(.failure(error))
+          completion(.failure(self.friendlyNfcTagLostError(error)))
         }
       }
     }
@@ -795,7 +846,10 @@ private final class IOSIso7816SessionManager {
     }
 
     let delegate = ISO7816TagSessionDelegate(appletId: appletId, operation: operation, completion: completion)
-    let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: delegate)
+    guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: delegate) else {
+      completion(.failure(PigeonError(code: "nfc-session-error", message: "无法创建 NFC 会话", details: nil)))
+      return
+    }
     session.alertMessage = "Hold your card near iPhone camera on upper back, until you see a ✅"
     delegate.bind(session: session)
     delegateRef = delegate
@@ -848,7 +902,7 @@ private final class ISO7816TagSessionDelegate: NSObject, NFCTagReaderSessionDele
         self.finish(.failure(PigeonError(code: "tag-unsupported", message: "检测到的卡片不支持 ISO 7816", details: nil)))
         return
       }
-      self.selectAppletIfNeeded(tag: tag, tagId: firstTag.sessionTagIdentifier)
+      self.selectAppletIfNeeded(tag: tag, tagId: tag.identifier)
     }
   }
 
@@ -886,7 +940,19 @@ private final class ISO7816TagSessionDelegate: NSObject, NFCTagReaderSessionDele
     guard !finished else { return }
     finished = true
     if invalidate {
-      session?.invalidate()
+      // Use invalidate(errorMessage:) for failures: iOS dismisses NFC sheet faster
+      // (~0.5s error animation vs ~1.2s success animation), letting Flutter show
+      // the error dialog within ~1 second of card detection.
+      switch result {
+      case .failure(let error):
+        if let pigeon = error as? PigeonError, pigeon.code == "uid-mismatch" {
+          session?.invalidate(errorMessage: "Wrong card detected")
+        } else {
+          session?.invalidate(errorMessage: " ")
+        }
+      case .success:
+        session?.invalidate()
+      }
     }
     completion(result)
   }
@@ -905,7 +971,7 @@ private final class HdWalletCardClient {
       switch outcome {
       case .success(let payload):
         do {
-          let tags = try parseResponse(payload)
+          let tags = try self.parseResponse(payload)
           completion(.success(CardStatus(
             hasKeyPair: tags[HdWalletApdu.tagHasKeyPair]?.first == 0x01,
             pinSet: tags[HdWalletApdu.tagPinSet]?.first == 0x01,
@@ -1084,23 +1150,23 @@ private enum BlockchainSpec {
     switch self {
     case .bitcoin:
       let compressed = publicKey.compressedSecp256k1()
-      let hash160 = Data(compressed.bytes.sha256().ripemd160())
+      let hash160 = RIPEMD160.hash(message: SHA256.hash(data: compressed))
       let prefix = Data([isTest ? 0x6F : 0x00])
       let body = prefix + hash160
-      let checksum = Data(Data(body.bytes.sha256()).bytes.sha256().prefix(4))
+      let checksum = Data(SHA256.hash(data: SHA256.hash(data: body)).prefix(4))
       return Base58.encode(body + checksum)
     case .dogecoin:
       let compressed = publicKey.compressedSecp256k1()
-      let hash160 = Data(compressed.bytes.sha256().ripemd160())
+      let hash160 = RIPEMD160.hash(message: SHA256.hash(data: compressed))
       let prefix = Data([isTest ? 0x71 : 0x1E])
       let body = prefix + hash160
-      let checksum = Data(Data(body.bytes.sha256()).bytes.sha256().prefix(4))
+      let checksum = Data(SHA256.hash(data: SHA256.hash(data: body)).prefix(4))
       return Base58.encode(body + checksum)
     case .tron:
       let ethBytes = publicKey.decompressedSecp256k1EthBytes()
       let hash = Data(Array(ethBytes).sha3(.keccak256))
       let body = Data([0x41]) + Data(hash.suffix(20))
-      let checksum = Data(Data(body.bytes.sha256()).bytes.sha256().prefix(4))
+      let checksum = Data(SHA256.hash(data: SHA256.hash(data: body)).prefix(4))
       return Base58.encode(body + checksum)
     case .ethereum:
       let ethBytes = publicKey.decompressedSecp256k1EthBytes()
@@ -1264,7 +1330,8 @@ private struct UInt256: Equatable, Comparable, CustomStringConvertible {
 
   func toHexString() -> String {
     if hi == 0 { return String(lo, radix: 16) }
-    return String(hi, radix: 16) + String(lo, radix: 16).leftPad(toLength: 32, withPad: "0")
+    let loStr = String(lo, radix: 16)
+    return String(hi, radix: 16) + String(repeating: "0", count: max(0, 32 - loStr.count)) + loStr
   }
 
   private func toDecimalString() -> String {
@@ -1302,6 +1369,10 @@ private struct UInt256: Equatable, Comparable, CustomStringConvertible {
     let (newLo, _) = lhs.lo.multipliedReportingOverflow(by: rhs.lo)
     let hiPart = lhs.hi &* rhs.lo &+ lhs.lo &* rhs.hi // approximate
     return UInt256(hi: hiPart, lo: newLo)
+  }
+
+  static func / (lhs: UInt256, rhs: UInt256) -> UInt256 {
+    lhs.quotientAndRemainder(dividingBy: rhs).0
   }
 
   func quotientAndRemainder(dividingBy divisor: UInt256) -> (UInt256, UInt256) {
@@ -1408,7 +1479,7 @@ private enum ChainClient {
   static func fetchEthFees(isTest: Bool) throws -> [FeeResponse] {
     let rpc = ethRpc(isTest: isTest)
     let gasPrice = try ethGasPrice(rpc: rpc)
-    let gasLimit: BigUInt = 21000
+    let gasLimit = BigUInt(21000)
     func weiForFactor(_ f: UInt64) -> String {
       let gp = gasPrice * BigUInt(f) / BigUInt(100)
       return EthEncoder.weiToEthString(gp * gasLimit)
@@ -1740,9 +1811,9 @@ private enum BtcEncoder {
 
   private static func encodeDer(r: Data, s: Data) -> Data {
     func pad(_ d: Data) -> Data {
-      var clean = d.dropWhile { $0 == 0 }
+      var clean = Data(d.drop(while: { $0 == 0 }))
       if let first = clean.first, first >= 0x80 { clean = Data([0x00]) + clean }
-      return Data(clean)
+      return clean
     }
     let rp = pad(r); let sp = pad(s)
     let body = Data([0x02, UInt8(rp.count)]) + rp + Data([0x02, UInt8(sp.count)]) + sp
@@ -1995,14 +2066,88 @@ private enum SHA256 {
 
 private enum RIPEMD160 {
   static func hash(message: Data) -> Data {
-    Data(message.ripemd160())
+    Data(Array(message).ripemd160())
+  }
+}
+
+private extension [UInt8] {
+  // Pure-Swift RIPEMD-160 (CryptoSwift 1.8+ dropped Digest.ripemd160)
+  func ripemd160() -> [UInt8] {
+    var msg = self
+    let bitLen = UInt64(msg.count) * 8
+    msg.append(0x80)
+    while msg.count % 64 != 56 { msg.append(0) }
+    for i in 0..<8 { msg.append(UInt8((bitLen >> (i * 8)) & 0xFF)) }
+
+    var h0: UInt32 = 0x6745_2301
+    var h1: UInt32 = 0xEFCD_AB89
+    var h2: UInt32 = 0x98BA_DCFE
+    var h3: UInt32 = 0x1032_5476
+    var h4: UInt32 = 0xC3D2_E1F0
+
+    let KL: [UInt32] = [0x0000_0000, 0x5A82_7999, 0x6ED9_EBA1, 0x8F1B_BCDC, 0xA953_FD4E]
+    let KR: [UInt32] = [0x50A2_8BE6, 0x5C4D_D124, 0x6D70_3EF3, 0x7A6D_76E9, 0x0000_0000]
+    let RL: [Int] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,
+                     3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,
+                     4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13]
+    let RR: [Int] = [5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,
+                     15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,
+                     12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11]
+    let SL: [Int] = [11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,
+                     11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,
+                     9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6]
+    let SR: [Int] = [8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,
+                     9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,
+                     8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11]
+
+    func f(_ j: Int, _ b: UInt32, _ c: UInt32, _ d: UInt32) -> UInt32 {
+      switch j {
+      case 0..<16:  return b ^ c ^ d
+      case 16..<32: return (b & c) | (~b & d)
+      case 32..<48: return (b | ~c) ^ d
+      case 48..<64: return (b & d) | (c & ~d)
+      default:      return b ^ (c | ~d)
+      }
+    }
+    func rotL32(_ x: UInt32, _ n: Int) -> UInt32 { (x << n) | (x >> (32 - n)) }
+
+    for off in stride(from: 0, to: msg.count, by: 64) {
+      let X = (0..<16).map { i -> UInt32 in
+        let b = off + i * 4
+        return UInt32(msg[b]) | (UInt32(msg[b+1]) << 8) | (UInt32(msg[b+2]) << 16) | (UInt32(msg[b+3]) << 24)
+      }
+      var (al, bl, cl, dl, el) = (h0, h1, h2, h3, h4)
+      var (ar, br, cr, dr, er) = (h0, h1, h2, h3, h4)
+      for j in 0..<80 {
+        let rnd = j / 16
+        var T = al &+ f(j, bl, cl, dl) &+ X[RL[j]] &+ KL[rnd]
+        T = rotL32(T, SL[j]) &+ el
+        al = el; el = dl; dl = rotL32(cl, 10); cl = bl; bl = T
+        T = ar &+ f(79 - j, br, cr, dr) &+ X[RR[j]] &+ KR[rnd]
+        T = rotL32(T, SR[j]) &+ er
+        ar = er; er = dr; dr = rotL32(cr, 10); cr = br; br = T
+      }
+      let T = h1 &+ cl &+ dr
+      h1 = h2 &+ dl &+ er
+      h2 = h3 &+ el &+ ar
+      h3 = h4 &+ al &+ br
+      h4 = h0 &+ bl &+ cr
+      h0 = T
+    }
+    var out = [UInt8](repeating: 0, count: 20)
+    for (i, h) in [h0, h1, h2, h3, h4].enumerated() {
+      out[i*4]   = UInt8(h         & 0xFF)
+      out[i*4+1] = UInt8((h >> 8)  & 0xFF)
+      out[i*4+2] = UInt8((h >> 16) & 0xFF)
+      out[i*4+3] = UInt8((h >> 24) & 0xFF)
+    }
+    return out
   }
 }
 
 // MARK: - Data / String helpers
 
 private extension Data {
-  var hexString: String { map { String(format: "%02x", $0) }.joined() }
   var reversed: Data { Data(self.reversed() as [UInt8]) }
 
   init?(hexString: String) {
