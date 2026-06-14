@@ -427,8 +427,8 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Chip Base";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -571,8 +571,8 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Chip Base";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -607,8 +607,8 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Chip Base";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

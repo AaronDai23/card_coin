@@ -38,8 +38,8 @@ env:
   XCODE_SCHEME: Runner
   XCODE_CONFIGURATION: Release
   BUNDLE_ID: com.cardbase.app
-  # 固定 Xcode 26.3，与 App Store SDK 26 要求对齐
-  XCODE_VERSION: '26.3'
+  # Xcode 16.4 稳定版；Apple 目前（iOS 26 beta 阶段）不要求 SDK 26
+  XCODE_VERSION: '16.4'
 
 jobs:
   build-ios:
@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ── 2. 指定 Xcode 版本 ────────────────────────────────────────────────────
-      # macos-15 runner 预装了多个 Xcode 版本，默认使用 16.4
+      # macos-15 runner 预装了多个 Xcode 版本
       # 固定到 16.4 稳定版，避免 Xcode 26 beta SDK 的 NFC entitlement 兼容性问题
       - name: Select Xcode ${{ env.XCODE_VERSION }}
         run: |
