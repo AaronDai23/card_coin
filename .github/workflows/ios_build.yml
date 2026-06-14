@@ -38,8 +38,8 @@ env:
   XCODE_SCHEME: Runner
   XCODE_CONFIGURATION: Release
   BUNDLE_ID: com.cardbase.app
-  # Xcode 16.4 稳定版；Apple 目前（iOS 26 beta 阶段）不要求 SDK 26
-  XCODE_VERSION: '16.4'
+  # Xcode 26.3，Apple 从 2026-04-28 起强制要求 SDK 26
+  XCODE_VERSION: '26.3'
 
 jobs:
   build-ios:
