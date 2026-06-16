@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:card_coin/cache/local_storage.dart';
 import 'package:card_coin/pigeons/messages.dart';
@@ -186,7 +187,7 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
   }
 
   if (ctx.state.defaultCurrencyList.isEmpty) {
-    showToast('智能卡 ${ctx.state.cardId} 未分配货币分组，请先为其分配一个货币分组才能扫卡');
+    showToast('Smart card ${ctx.state.cardId} did not assign any group.');
     return;
   }
 
@@ -201,7 +202,11 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
       final isWrongCard =
           error.code == 'uid-mismatch' || error.message == 'WrongCardNumber';
       if (isWrongCard) {
-        // iOS system NFC sheet already shows the error; no Flutter dialog needed.
+        // iOS: system NFC sheet already shows the error; no Flutter dialog needed.
+        // Android: no system-level error UI, so show a toast.
+        if (Platform.isAndroid) {
+          showToast('Wrong card. Please scan the correct card.');
+        }
         return;
       }
       // NFC communication errors: card moved / removed mid-scan.
