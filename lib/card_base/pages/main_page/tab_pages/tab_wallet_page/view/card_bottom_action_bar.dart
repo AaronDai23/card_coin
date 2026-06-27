@@ -170,7 +170,8 @@ class CardBottomActionBar extends StatelessWidget {
     }
 
     return ElevatedButton(
-      onPressed: () => dispatch(MyCardActionCreator.onMingeDetailClick()),
+      onPressed: () => dispatch(
+          MyCardActionCreator.onPushWalletPage(state.cardDetail?.uid ?? '')),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFFF3E146),
         foregroundColor: Colors.black,

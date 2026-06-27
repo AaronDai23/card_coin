@@ -36,14 +36,19 @@ Widget buildView(MainState state, Dispatch dispatch, ViewService viewService) {
                   index: state.currentIndex,
                   itemBuilder: (c, i) {
                     var item = state.tabList[i];
+                    final Map<String, dynamic> routeArgs = {
+                      'userInfo': state.userInfo,
+                      'categoryItem': item,
+                      'unReadCount': state.unReadCount,
+                      'taskItemId': state.taskItemId,
+                    };
+                    if (item.target == 'myAssetPage') {
+                      routeArgs['uid'] = state.currentCardUid;
+                      routeArgs['cardDetail'] = null;
+                    }
                     if (item.type == 'ACTIVITY') {
                       return AppRoute.global
-                          .buildPage(state.tabList[i].target ?? '', {
-                        'userInfo': state.userInfo,
-                        'categoryItem': item,
-                        'unReadCount': state.unReadCount,
-                        'taskItemId': state.taskItemId
-                      });
+                          .buildPage(state.tabList[i].target ?? '', routeArgs);
                     } else {
                       return AppRoute.global.buildPage('tabWebviewPage', {
                         'userInfo': state.userInfo,
@@ -61,9 +66,10 @@ Widget buildView(MainState state, Dispatch dispatch, ViewService viewService) {
                   ),
                   Container(
                     width: double.infinity,
-                    height: 80.0,
                     color: Colors.white,
-                    padding: const EdgeInsets.only(bottom: 0),
+                    padding: EdgeInsets.only(
+                        bottom:
+                            MediaQuery.of(viewService.context).padding.bottom),
                     child: TabBar(
                       key: ValueKey(state.tabList.map((e) => e.name).join()),
                       labelPadding: const EdgeInsets.all(0),

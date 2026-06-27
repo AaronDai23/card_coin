@@ -14,6 +14,8 @@ Widget buildView(
   final filtered = state.selectedType == 'ALL'
       ? allAssets
       : allAssets.where((e) => e.assetType == state.selectedType).toList();
+  final displayTypes =
+      _buildDisplayTypes(state.assetSummaryInfo?.assetTypeData);
   return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
@@ -32,6 +34,7 @@ Widget buildView(
             // dispatch(ScanWalletActionCreator.onShowLoading());
           },
           onLoadSuccess: () {
+            final typeData = state.assetSummaryInfo?.assetTypeData ?? [];
             return Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -47,24 +50,46 @@ Widget buildView(
                   ),
                   const SizedBox(height: 24),
 
-                  /// --- 资产概览，宽度和列表一致 ---
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: state.assetSummaryInfo!.assetTypeData!
-                        .map(
-                          (item) => Expanded(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 5),
-                              // 去掉左右 padding，只保留上下间距
-                              child: _AssetSummary(data: item),
+                  /// --- 资产概览，数据非空时展示 ---
+                  if (typeData.isNotEmpty)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: typeData
+                          .map(
+                            (item) => Expanded(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 5),
+                                child: _AssetSummary(data: item),
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
+                          )
+                          .toList(),
+                    ),
 
                   const SizedBox(height: 24),
+
+                  /// Exchange & Cash Out 始终展示
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildTopActionButton(
+                        icon: Icons.currency_exchange,
+                        text: 'Exchange',
+                        onTap: () =>
+                            dispatch(MyAssetActionCreator.onPushExchange()),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildTopActionButton(
+                        icon: Icons.payments_outlined,
+                        text: 'Cash Out',
+                        onTap: () =>
+                            dispatch(MyAssetActionCreator.onPushCashOut()),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),
 
                   Align(
                     alignment: Alignment.centerLeft,
@@ -81,16 +106,12 @@ Widget buildView(
                             state,
                             dispatch,
                           ),
-                          const SizedBox(width: 8),
-                          ...state.assetSummaryInfo?.assetTypeData
-                                  ?.where((item) => item.assetType != 'ALL')
-                                  .expand((item) {
-                                return [
-                                  const SizedBox(width: 8),
-                                  _buildCategoryBtn(item, state, dispatch),
-                                ];
-                              }).toList() ??
-                              [],
+                          ...displayTypes.expand((item) {
+                            return [
+                              const SizedBox(width: 8),
+                              _buildCategoryBtn(item, state, dispatch),
+                            ];
+                          }).toList(),
                         ],
                       ),
                     ),
@@ -407,6 +428,67 @@ Widget _buildCategoryBtn(
         style: TextStyle(
           color: isSelected ? Colors.white : Colors.black,
           fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+}
+
+List<AssetTypeData> _buildDisplayTypes(List<AssetTypeData>? sourceTypes) {
+  final origin = sourceTypes ?? const <AssetTypeData>[];
+  return origin
+      .where((item) => (item.assetType?.toUpperCase() ?? '') != 'ALL')
+      .toList();
+}
+
+Widget _buildTopActionButton({
+  required IconData icon,
+  required String text,
+  required VoidCallback onTap,
+}) {
+  return Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(10),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.black12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Color(0xFF2E9E44),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 14),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ),
       ),
     ),

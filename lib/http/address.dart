@@ -297,6 +297,68 @@ class NetworkAddress {
 
   static const String assetSummary =
       '/service-rest/m/smartCard/asset/summary'; // 获取资产总览
+
+  static const String assetExchangeProp =
+      '/service-rest/m/smartCard/asset/exchangeProp'; // 查询兑换比例/手续费
+
+  static const String assetExchange =
+      '/service-rest/m/smartCard/asset/exchange'; // 提交兑换（旧）
+
+  static const String assetExchangeInit =
+      '/service-rest/m/smartCard/asset/exchange/init'; // Convert From 列表
+
+  static const String assetExchangeTarget =
+      '/service-rest/m/smartCard/asset/exchange/target'; // Convert To 列表
+
+  static const String assetExchangePrice =
+      '/service-rest/m/smartCard/asset/exchange/price'; // 刷新汇率
+
+  static const String assetExchangePreview =
+      '/service-rest/m/smartCard/asset/exchange/preview'; // 预估到账金额
+
+  static const String assetExchangePreSign =
+      '/service-rest/m/smartCard/asset/exchange/preSign'; // 创建订单+签名载荷
+
+  static const String assetExchangeSubmitSign =
+      '/service-rest/m/smartCard/asset/exchange/submitSign'; // 提交签名
+
+  static const String assetExchangeStatus =
+      '/service-rest/m/smartCard/asset/exchange/status'; // 订单进度
+
+  static const String assetExchangeHistory =
+      '/service-rest/m/smartCard/asset/exchange/history'; // Convert 历史
+
+  static const String assetExchangeDetail =
+      '/service-rest/m/smartCard/asset/exchange/detail'; // Convert 详情
+
+  // ── Cash Out（卡法币 → 银行卡）────────────────────────────────
+  static const String cashOutFee =
+      '/service-rest/m/smartCard/fiat/cashOut/fee'; // 手续费试算
+
+  static const String cashOutApply =
+      '/service-rest/m/smartCard/fiat/cashOut/apply'; // 提交提现
+
+  static const String cashOutHistory =
+      '/service-rest/m/smartCard/fiat/cashOut/history'; // 提现历史
+
+  static const String cashOutDetail =
+      '/service-rest/m/smartCard/fiat/cashOut/detail'; // 提现详情
+
+  // ── 提现银行卡（customer 维度，不跟 uid）──────────────────────
+  static const String withdrawBankBanks =
+      '/service-rest/m/customer/withdrawBank/banks'; // 银行列表
+
+  static const String withdrawBankCurrent =
+      '/service-rest/m/customer/withdrawBank/current'; // 当前绑卡状态
+
+  static const String withdrawBankBind =
+      '/service-rest/m/customer/withdrawBank/bind'; // 首次绑定
+
+  static const String withdrawBankUpdate =
+      '/service-rest/m/customer/withdrawBank/update'; // 修改银行卡
+
+  static const String withdrawBankHistory =
+      '/service-rest/m/customer/withdrawBank/history'; // 绑卡历史
   static const String flowHistory =
       '/service-rest/m/crypto/investment/flowHistory'; // 获取定投流水
 

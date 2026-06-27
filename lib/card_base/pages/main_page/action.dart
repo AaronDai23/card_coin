@@ -18,6 +18,7 @@ enum MainAction {
   addClick,
   updateCardId,
   jump,
+  applyJump,
   showMenu,
   updateCategoryList,
   menuItemClick,
@@ -73,6 +74,10 @@ class MainActionCreator {
 
   static Action onJump(int index) {
     return Action(MainAction.jump, payload: index);
+  }
+
+  static Action onApplyJump(int index) {
+    return Action(MainAction.applyJump, payload: index);
   }
 
   static Action onShowMenu() {

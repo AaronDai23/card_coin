@@ -20,6 +20,8 @@ Effect<MyAssetState>? buildEffect() {
     MyAssetAction.investmentlist: _onInvestmentClick,
     MyAssetAction.selectType: _onSelectType,
     MyAssetAction.selectTooltip: _onSelectTip,
+    MyAssetAction.pushExchange: _onPushExchange,
+    MyAssetAction.pushCashOut: _onPushCashOut,
   });
 }
 
@@ -142,6 +144,7 @@ Future<void> _onSelectType(Action action, Context<MyAssetState> ctx) async {
     for (var element in ctx.state.assetSummaryInfo?.assetTypeData ?? []) {
       if (element.assetType == type) {
         ctx.state.selectedShowPrice = element.usdDisplayAmount ?? "0.0";
+        break;
       }
     }
   }
@@ -155,4 +158,28 @@ Future<void> _onSelectTip(Action action, Context<MyAssetState> ctx) async {
   String tip = action.payload;
   ctx.state.tooltip = tip;
   ctx.dispatch(MyAssetActionCreator.onLoadSuccess(ctx.state.assetSummaryInfo!));
+}
+
+Future<void> _onPushExchange(Action action, Context<MyAssetState> ctx) async {
+  await Navigator.of(ctx.context).pushNamed(
+    'exchangePage',
+    arguments: {'uid': ctx.state.uid},
+  );
+}
+
+Future<void> _onPushCashOut(Action action, Context<MyAssetState> ctx) async {
+  // 从资产摘要中找 FIAT 资产，获取法币 symbol 和余额
+  final allAssets = ctx.state.assetSummaryInfo?.assetListData ?? [];
+  final fiatAsset = allAssets.firstWhere(
+    (e) => (e.assetType ?? '').toUpperCase() == 'FIAT',
+    orElse: () => allAssets.isNotEmpty ? allAssets.first : AssetListData(),
+  );
+  await Navigator.of(ctx.context).pushNamed(
+    'cashOutPage',
+    arguments: {
+      'uid': ctx.state.uid,
+      'symbol': fiatAsset.symbol ?? '',
+      'balance': fiatAsset.balance ?? '',
+    },
+  );
 }

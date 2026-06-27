@@ -11,6 +11,8 @@ enum MyAssetAction {
   investmentlist,
   selectType,
   selectTooltip,
+  pushExchange,
+  pushCashOut,
 }
 
 class MyAssetActionCreator {
@@ -44,5 +46,13 @@ class MyAssetActionCreator {
 
   static Action onSelectTooltip(String tip) {
     return Action(MyAssetAction.selectTooltip, payload: tip);
+  }
+
+  static Action onPushExchange() {
+    return const Action(MyAssetAction.pushExchange);
+  }
+
+  static Action onPushCashOut() {
+    return const Action(MyAssetAction.pushCashOut);
   }
 }

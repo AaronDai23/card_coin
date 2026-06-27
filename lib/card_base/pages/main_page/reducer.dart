@@ -12,7 +12,8 @@ Reducer<MainState>? buildReducer() {
       MainAction.loadSuccess: _onLoadSuccess,
       MainAction.loadFailure: _onLoadFailure,
       MainAction.showLoading: _onShowLoading,
-      MainAction.jump: _onJump,
+      MainAction.applyJump: _onJump,
+      MainAction.updateCardId: _onUpdateCardId,
       MainAction.updateCategoryList: _onUpdateCategoryList,
     },
   );
@@ -39,6 +40,12 @@ MainState _onLoadFailure(MainState state, Action action) {
 
 MainState _onShowLoading(MainState state, Action action) {
   final MainState newState = state.clone()..loadStatus = LoadType.loading;
+  return newState;
+}
+
+MainState _onUpdateCardId(MainState state, Action action) {
+  final MainState newState = state.clone()
+    ..currentCardUid = action.payload?.toString() ?? '';
   return newState;
 }
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:card_coin/bean/update_info_bean.dart';
+import 'package:card_coin/cache/local_storage.dart';
 import 'package:card_coin/card_base/pages/main_page/tab_pages/tab_wallet_page/my_card_page/action.dart';
 import 'package:card_coin/global_store/store.dart';
 import 'package:card_coin/http/address.dart';
@@ -35,6 +36,7 @@ Effect<MainState>? buildEffect() {
     MainAction.showMenu: _onShowMenu,
     MainAction.reload: _onInit,
     CommonAction.languageChanged: _onInit,
+    MainAction.jump: _onJump,
     MainAction.menuItemClick: _onMenuItemClick,
     MainAction.loadUnreadCount: _onLoadUnreadCount,
     MainAction.upgrade: _onUpgrade,
@@ -71,6 +73,9 @@ void _initLifecycle(Action action, Context<MainState> ctx) {
 }
 
 Future<void> _onInit(Action action, Context<MainState> ctx) async {
+  final currentCardUid = await LocalStorage.getCardUuid() ?? '';
+  ctx.dispatch(MainActionCreator.onUpdateCardId(currentCardUid));
+
   Map<String, dynamic> params = {};
   await HttpManager.getInstance()
       .get(NetworkAddress.bannerMoreUrl, queryParameters: params)
@@ -121,6 +126,54 @@ Future<void> _onInit(Action action, Context<MainState> ctx) async {
 
     ctx.dispatch(MainActionCreator.onLoadSuccess(list));
   }
+}
+
+Future<void> _onJump(Action action, Context<MainState> ctx) async {
+  final int targetIndex = action.payload;
+  if (targetIndex < 0 || targetIndex >= ctx.state.tabList.length) {
+    return;
+  }
+
+  final targetTab = ctx.state.tabList[targetIndex];
+  if (_requiresCardUid(targetTab)) {
+    final uid = await LocalStorage.getCardUuid() ?? '';
+    if (uid.isEmpty) {
+      final isZh =
+          (ctx.state.languageLocale?.languageCode.toLowerCase() ?? '') == 'zh';
+      final tip =
+          isZh ? '请先在首页拍卡后，再切换到该页面' : 'Please tap card on Home page first';
+      final homeIndex = _findHomeTabIndex(ctx.state.tabList);
+      await showDialog(
+          context: ctx.context,
+          builder: (context) {
+            return ZenggeTextAlertDialog(
+              tip,
+              enableCancel: false,
+            );
+          });
+      ctx.state.tabController?.animateTo(homeIndex);
+      ctx.dispatch(MainActionCreator.onApplyJump(homeIndex));
+      return;
+    }
+    ctx.dispatch(MainActionCreator.onUpdateCardId(uid));
+  }
+
+  ctx.dispatch(MainActionCreator.onApplyJump(targetIndex));
+}
+
+bool _requiresCardUid(PageCategoryItem tab) {
+  return tab.target == 'myAssetPage';
+}
+
+int _findHomeTabIndex(List<PageCategoryItem> tabList) {
+  final index = tabList.indexWhere((tab) {
+    final code = tab.code?.toUpperCase() ?? '';
+    final category = tab.category?.toUpperCase() ?? '';
+    return tab.target == 'tabWalletPage' ||
+        code == 'WALLET' ||
+        category == 'HOME';
+  });
+  return index >= 0 ? index : 0;
 }
 
 void _onLoadUnreadCount(Action action, Context<MainState> ctx) {

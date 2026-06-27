@@ -9,5 +9,5 @@ class StringResourceMainGoogleLite implements StringResource {
 
   @override
   String signature = 'smart_card_pro';
-  // String signature = 'smart_card_lite';
+  // String signature = 'scl';
 }

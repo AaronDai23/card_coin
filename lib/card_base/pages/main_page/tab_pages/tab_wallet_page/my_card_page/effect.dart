@@ -287,142 +287,142 @@ void _onCheckPageConfig(
   List<PageFieldConfig> infoList = detail.pageFieldConfig ?? [];
   if (infoList.isNotEmpty) {
     for (var element in infoList) {
-      print("element.fieldName:${element.fieldName}");
-      if (element.fieldName == "K Line") {
+      print("element.fieldCode:${element.fieldCode}");
+      if (element.fieldCode == "k_line") {
         info.isShowKLine = true;
       }
-      if (element.fieldName == "Total Investment") {
-        print("Total Investment:${element.fieldName}");
+      if (element.fieldCode == "total_investment") {
+        print("total_investment:${element.fieldCode}");
         info.isShowTotalInvestment = true;
       }
-      if (element.fieldName == "Current Value") {
+      if (element.fieldCode == "current_value") {
         info.isShowCurValue = true;
       }
-      if (element.fieldName == "Current Price") {
+      if (element.fieldCode == "current_price") {
         info.isShowCurPirce = true;
       }
-      if (element.fieldName == "Profit") {
+      if (element.fieldCode == "profit") {
         info.isShowProfit = true;
       }
-      if (element.fieldName == "ROI") {
+      if (element.fieldCode == "roi") {
         info.isShowRoi = true;
       }
-      if (element.fieldName == "Card Number") {
+      if (element.fieldCode == "card_number") {
         info.isShowCardNo = true;
       }
-      if (element.fieldName == "Add Collection") {
+      if (element.fieldCode == "add_collection") {
         info.isShowCardAddCollection = true;
       }
 
-      if (element.fieldName == "Detail") {
+      if (element.fieldCode == "detail") {
         info.isShowCardDetail = true;
       }
 
-      if (element.fieldName == "Postcard Description") {
+      if (element.fieldCode == "postcard_description") {
         info.isShowCardDescription = true;
       }
 
-      if (element.fieldName == "Wallet") {
+      if (element.fieldCode == "wallet") {
         info.isShowWallet = true;
       }
 
-      if (element.fieldName == "Card Number") {
+      if (element.fieldCode == "card_number") {
         info.isShowCardNo = true;
       }
-      if (element.fieldName == "Card Balance") {
+      if (element.fieldCode == "card_balance") {
         info.isShowCardbalance = true;
       }
-      if (element.fieldName == "Investment Amount") {
+      if (element.fieldCode == "investment_amount") {
         info.isShowCardMount = true;
       }
-      if (element.fieldName == "K Line") {
+      if (element.fieldCode == "k_line") {
         info.isShowKLine = true;
       }
-      if (element.fieldName == "Line Chart") {
+      if (element.fieldCode == "line_chart") {
         info.isShowLineChart = true;
       }
-      if (element.fieldName == "Maximum Periods") {
+      if (element.fieldCode == "investment_max_periods") {
         info.isShowCardMaxPeriods = true;
       }
 
-      if (element.fieldName == "Executed count") {
+      if (element.fieldCode == "investment_executed_count") {
         info.isShowCardExecutedCount = true;
       }
-      if (element.fieldName == "Postcard Name") {
+      if (element.fieldCode == "postcard_name") {
         info.isShowPostCardName = true;
       }
-      if (element.fieldName == "Postcard Mobile") {
+      if (element.fieldCode == "postcard_mobile") {
         info.isShowPostCardMobile = true;
       }
-      if (element.fieldName == "Postcard Email") {
+      if (element.fieldCode == "postcard_email") {
         info.isShowPostCardEmail = true;
       }
-      if (element.fieldName == "Postcard Address") {
+      if (element.fieldCode == "postcard_address") {
         info.isShowPostCardAddress = true;
       }
-      if (element.fieldName == "Card Logo") {
+      if (element.fieldCode == "card_logo") {
         info.isShowCardLogo = true;
       }
 
-      if (element.fieldName == "Background Image") {
+      if (element.fieldCode == "background_image") {
         info.isShowCardBackgroundImage = true;
       }
 
-      if (element.fieldName == "Merchant Title") {
+      if (element.fieldCode == "merchant_title") {
         info.isShowCardMerchantTitle = true;
       }
 
-      if (element.fieldName == "Merchant Logo") {
+      if (element.fieldCode == "merchant_logo") {
         info.isShowCardMerchantLogo = true;
       }
-      if (element.fieldName == "Merchant Name") {
+      if (element.fieldCode == "merchant_name") {
         info.isShowCardMerchantName = true;
       }
 
-      if (element.fieldName == "Shape") {
+      if (element.fieldCode == "card_shape") {
         info.isShowCardShape = true;
       }
 
-      if (element.fieldName == "Shape Image") {
+      if (element.fieldCode == "card_shape_image") {
         info.isShowCardShapeImage = true;
       }
 
-      if (element.fieldName == "Brand Image") {
+      if (element.fieldCode == "card_brand_image") {
         info.isShowCardBrandImage = true;
       }
 
-      if (element.fieldName == "Brand") {
+      if (element.fieldCode == "card_brand") {
         info.isShowCardBrand = true;
       }
 
-      if (element.fieldName == "Balance") {
+      if (element.fieldCode == "balance") {
         info.isShowCardTotalBalance = true;
       }
 
-      if (element.fieldName == "Plan Name") {
+      if (element.fieldCode == "investment_plan_name") {
         info.isShowPostCardPlan = true;
       }
-      if (element.fieldName == "Cycle") {
+      if (element.fieldCode == "investment_cycle") {
         info.isShowPostCardCycle = true;
       }
-      if (element.fieldName == "Re-Tap") {
+      if (element.fieldCode == "re_top") {
         info.isShowPostCardReTap = true;
       }
-      if (element.fieldName == "Activation") {
+      if (element.fieldCode == "investment_activation") {
         info.isShowPostCardActivation = true;
       }
-      if (element.fieldName == "Investment Info	") {
+      if (element.fieldCode == "investment_info") {
         info.isShowPostCardContact = true;
       }
-      if (element.fieldName == "Investment Status") {
+      if (element.fieldCode == "investment_status") {
         info.isShowPStatus = true;
       }
-      if (element.fieldName == "DApp List") {
-        print("dapp_list:${element.fieldName}");
+      if (element.fieldCode == "dapp_list") {
+        print("dapp_list:${element.fieldCode}");
         info.isShowDapplist = true;
       }
 
-      if (element.fieldName == "Chain Stamp") {
+      if (element.fieldCode == "chain_stamp") {
         info.isShowCardChainStamp = true;
       }
     }

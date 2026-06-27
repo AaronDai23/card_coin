@@ -49,6 +49,17 @@ class _LazyIndexedStackState extends State<LazyIndexedStack> {
 
   @override
   void didUpdateWidget(LazyIndexedStack oldWidget) {
+    // 处理 itemCount 增减（例如 tab 列表动态加载后长度变化）
+    if (widget.itemCount > _children.length) {
+      for (int i = _children.length; i < widget.itemCount; ++i) {
+        _children.add(Container());
+        _loaded.add(false);
+      }
+    } else if (widget.itemCount < _children.length) {
+      _children = _children.sublist(0, widget.itemCount);
+      _loaded = _loaded.sublist(0, widget.itemCount);
+    }
+
     for (int i = 0; i < widget.itemCount; ++i) {
       if (i == widget.index) {
         if (!_loaded[i]) {

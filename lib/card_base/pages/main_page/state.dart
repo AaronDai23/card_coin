@@ -10,6 +10,7 @@ import '../../bean/page_categroy_item.dart';
 class MainState extends LoadPageState<MainState> {
   UserInfo? userInfo;
   int currentIndex = 0;
+  String currentCardUid = '';
   late List<PageCategoryItem> tabList;
   TabController? tabController;
   late GlobalKey showPopWinKey;
@@ -30,6 +31,7 @@ class MainState extends LoadPageState<MainState> {
   MainState clone() {
     return MainState()
       ..userInfo = userInfo
+      ..currentCardUid = currentCardUid
       ..languageLocale = languageLocale
       ..languageResource = languageResource
       ..tabController = tabController

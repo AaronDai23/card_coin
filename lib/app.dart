@@ -23,6 +23,13 @@ import 'package:card_coin/card_base/pages/investment_page/investment_process_pag
 import 'package:card_coin/card_base/pages/investment_page/investment_single_detail_page/page.dart';
 import 'package:card_coin/card_base/pages/investment_page/page.dart';
 import 'package:card_coin/card_base/pages/member_points_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/cash_out_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/cash_out_history_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/cash_out_detail_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/convert_history_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/convert_detail_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/exchange_page/page.dart';
+import 'package:card_coin/card_base/pages/my_asset_page/withdraw_bank_page/page.dart';
 import 'package:card_coin/card_base/pages/my_asset_page/page.dart';
 import 'package:card_coin/card_base/pages/scan_wallet_page/page.dart';
 import 'package:card_coin/card_base/pages/settings_page/change_language_page/page.dart';
@@ -247,6 +254,13 @@ class AppRoute {
     'investmentSingleDetailPage',
     'withdrawLightningPage',
     'myAssetPage',
+    'exchangePage',
+    'convertHistoryPage',
+    'convertDetailPage',
+    'cashOutPage',
+    'cashOutHistoryPage',
+    'cashOutDetailPage',
+    'withdrawBankPage',
     'flowHistoryPage',
     'biometricsPage',
     'coinMessageDetailPage',
@@ -351,6 +365,13 @@ class AppRoute {
         'investmentSingleDetailPage': InvestmentSingleDetailPage(),
         'withdrawLightningPage': WithdrawLightningPage(),
         'myAssetPage': MyAssetPage(),
+        'exchangePage': ExchangePage(),
+        'convertHistoryPage': ConvertHistoryPage(),
+        'convertDetailPage': ConvertDetailPage(),
+        'cashOutPage': CashOutPage(),
+        'cashOutHistoryPage': CashOutHistoryPage(),
+        'cashOutDetailPage': CashOutDetailPage(),
+        'withdrawBankPage': WithdrawBankPage(),
         'flowHistoryPage': FlowHistoryPage(),
         'biometricsPage': BiometricsPage(),
         'coinMessageDetailPage': CoinMessageDetailPage(),
