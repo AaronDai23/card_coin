@@ -9,19 +9,15 @@
     <key>teamID</key>
     <string>G76B76R439</string>
 
-    <!-- 手动签名：CI 通过 PlistBuddy 在运行时将 provisioningProfiles 填入实际 UUID -->
+    <!-- automatic: Xcode 通过 ASC API Key 自动处理 Runner 和 Clip 两个 target 的签名，
+         无需为每个 target 单独指定 Profile UUID。
+         若切回 manual，需在 provisioningProfiles 中同时提供
+         com.cardbase.app 和 com.cardbase.app.Clip 的 UUID。 -->
     <key>signingStyle</key>
-    <string>manual</string>
+    <string>automatic</string>
 
     <key>signingCertificate</key>
     <string>Apple Distribution</string>
-
-    <!-- CI 在运行时通过 PlistBuddy 填入实际 Profile UUID，勿手动修改此值 -->
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.cardbase.app</key>
-        <string>REPLACE_AT_RUNTIME</string>
-    </dict>
 
     <key>stripSwiftSymbols</key>
     <true/>
