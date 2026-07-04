@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.1.9+282
+version: 2.1.9+290
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -133,11 +133,11 @@ dependencies:
   app_links: ^3.4.0  # 推荐使用最新稳定版本
 
   chipcore_sdk:
-    path: '../chipcore_sdk'     #
-    # git:
-    #   url: https://github.com/AaronDai23/chipcore_sdk.git
-    #   # ref: v1.0.0   #
-    #   ref: main
+    # path: '../chipcore_sdk'     #
+    git:
+      url: https://github.com/AaronDai23/chipcore_sdk.git
+      # ref: v1.0.0   #
+      ref: main
   opentelemetry: ^0.18.10
 
 
