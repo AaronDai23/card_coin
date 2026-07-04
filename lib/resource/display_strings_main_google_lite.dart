@@ -8,6 +8,6 @@ class StringResourceMainGoogleLite implements StringResource {
   String marketCode = 'GOOGLE';
 
   @override
-  String signature = 'smart_card_pro';
-  // String signature = 'scl';
+  // String signature = 'smart_card_pro';
+  String signature = 'scl';
 }

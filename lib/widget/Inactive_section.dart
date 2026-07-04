@@ -155,7 +155,7 @@ class InactiveSectionWeb extends StatelessWidget {
                                     child: Container(
                                       decoration: const BoxDecoration(
                                         color:
-                                            Color.fromARGB(255, 49, 165, 255),
+                                            Color(0xFFF58A1F),
                                         borderRadius: BorderRadius.horizontal(
                                           left: Radius.circular(20),
                                           right: Radius.circular(20),

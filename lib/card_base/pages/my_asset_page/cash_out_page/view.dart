@@ -217,11 +217,11 @@ class _BankCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.account_balance_outlined,
-                        color: Colors.blue, size: 22),
+                        color: Colors.orange, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

@@ -19,6 +19,7 @@ class LocalStorage {
   static const localizationMd5 = "localization_md5";
   static const localizationList = "localization_list";
   static const cardInfo = "card_info";
+  static const pageFieldConfig = "page_field_config_";
   static const cardInvestmentConfig = "card_invest_config";
   static const cardInfoList = "card_info_list";
   static const addressBookKey = "address_book_key";

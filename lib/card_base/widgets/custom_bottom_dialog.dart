@@ -1142,7 +1142,7 @@ class _BottomSheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.blue,
+        color: Colors.orange,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(32.0),
           topRight: Radius.circular(32.0),
@@ -1230,7 +1230,7 @@ class _NormalBottomSheetContainer extends StatelessWidget {
                 ? Container(
                     height: 32,
                     decoration: const BoxDecoration(
-                      color: Colors.blue,
+                      color: Colors.orange,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(32.0),
                         topRight: Radius.circular(32.0),
@@ -1247,7 +1247,7 @@ class _NormalBottomSheetContainer extends StatelessWidget {
                       bottom: 0.0,
                     ),
                     child: Material(
-                      color: Colors.blue,
+                      color: Colors.orange,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(14),
                         topRight: Radius.circular(14),

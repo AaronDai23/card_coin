@@ -488,7 +488,7 @@ Future<void> mainCommon() async {
   if (Platform.isAndroid) {
     // 设置状态栏背景及颜色
     SystemUiOverlayStyle systemUiOverlayStyle =
-        const SystemUiOverlayStyle(statusBarColor: Color(0x0031a5ff));
+        const SystemUiOverlayStyle(statusBarColor: Color(0x00F58A1F));
     SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
     // SystemChrome.setEnabledSystemUIOverlays([]); //隐藏状态栏
 
@@ -737,21 +737,12 @@ class _MyAppState extends State<MyApp> {
         navigatorObservers: [routeObserver, otelRouteObserver],
         theme: ThemeData(useMaterial3: false).copyWith(
             extensions: <ThemeExtension<dynamic>>[
-              const GradientTheme(
-                primaryGradient: LinearGradient(
-                  colors: [
-                    Color.fromARGB(255, 49, 165, 255),
-                    Color.fromARGB(255, 8, 23, 158),
-                  ],
-                  begin: Alignment.bottomLeft,
-                  end: Alignment.topRight,
-                ),
-              ),
+              GradientTheme(primaryGradient: AppThemeConfig.gradient),
             ],
             brightness: Brightness.light, //控件颜色模式Light
             primaryColor: Colors.black, //设置主题色为黑色即可
             appBarTheme: ThemeData(useMaterial3: false).appBarTheme.copyWith(
-                backgroundColor: const Color.fromARGB(255, 49, 165, 255),
+                backgroundColor: AppThemeConfig.appBarBackground,
                 foregroundColor: Colors.white,
                 iconTheme: const IconThemeData(color: Colors.white),
                 titleTextStyle:

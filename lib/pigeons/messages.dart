@@ -7,9 +7,7 @@ import 'dart:typed_data' show Float64List, Int32List, Int64List, Uint8List;
 
 import 'package:flutter/foundation.dart' show ReadBuffer, WriteBuffer;
 import 'package:flutter/services.dart';
-
-List<Object?> wrapResponse(
-    {Object? result, PlatformException? error, bool empty = false}) {
+List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty = false}) {
   if (empty) {
     return <Object?>[];
   }
@@ -88,7 +86,6 @@ class SendMessage {
     this.gasLimit,
     this.gasPrice,
     required this.isTest,
-    this.contractAddress,
   });
 
   String? symbol;
@@ -111,8 +108,6 @@ class SendMessage {
 
   String isTest;
 
-  String? contractAddress;
-
   Object encode() {
     return <Object?>[
       symbol,
@@ -125,7 +120,6 @@ class SendMessage {
       gasLimit,
       gasPrice,
       isTest,
-      contractAddress,
     ];
   }
 
@@ -142,7 +136,6 @@ class SendMessage {
       gasLimit: result[7] as String?,
       gasPrice: result[8] as String?,
       isTest: result[9]! as String,
-      contractAddress: result.length > 10 ? result[10] as String? : null,
     );
   }
 }
@@ -558,6 +551,7 @@ class SendCommandMessage {
     this.command,
     this.checkLock,
     this.ndefLink,
+    this.ndefAar,
     this.cardNo,
     this.checkPwd,
     this.needRun,
@@ -574,6 +568,8 @@ class SendCommandMessage {
 
   String? ndefLink;
 
+  String? ndefAar;
+
   String? cardNo;
 
   bool? checkPwd;
@@ -589,6 +585,7 @@ class SendCommandMessage {
       command,
       checkLock,
       ndefLink,
+      ndefAar,
       cardNo,
       checkPwd,
       needRun,
@@ -604,10 +601,11 @@ class SendCommandMessage {
       command: result[2] as Uint8List?,
       checkLock: result[3] as bool?,
       ndefLink: result[4] as String?,
-      cardNo: result[5] as String?,
-      checkPwd: result[6] as bool?,
-      needRun: result[7] as bool?,
-      needSyscUid: result[8] as bool?,
+      ndefAar: result[5] as String?,
+      cardNo: result[6] as String?,
+      checkPwd: result[7] as bool?,
+      needRun: result[8] as bool?,
+      needSyscUid: result[9] as bool?,
     );
   }
 }
@@ -730,31 +728,31 @@ class _BlockchainApiCodec extends StandardMessageCodec {
   @override
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
-      case 128:
+      case 128: 
         return CardMessage.decode(readValue(buffer)!);
-      case 129:
+      case 129: 
         return ChainKeyInfo.decode(readValue(buffer)!);
-      case 130:
+      case 130: 
         return ChainKeyMessage.decode(readValue(buffer)!);
-      case 131:
+      case 131: 
         return CommandResponse.decode(readValue(buffer)!);
-      case 132:
+      case 132: 
         return CurrencyInfoMessage.decode(readValue(buffer)!);
-      case 133:
+      case 133: 
         return FeeMessage.decode(readValue(buffer)!);
-      case 134:
+      case 134: 
         return FeeResponse.decode(readValue(buffer)!);
-      case 135:
+      case 135: 
         return SendCommandMessage.decode(readValue(buffer)!);
-      case 136:
+      case 136: 
         return SendMessage.decode(readValue(buffer)!);
-      case 137:
+      case 137: 
         return SendTransactionResponse.decode(readValue(buffer)!);
-      case 138:
+      case 138: 
         return TransactionHistoryRequest.decode(readValue(buffer)!);
-      case 139:
+      case 139: 
         return TransactionsHistory.decode(readValue(buffer)!);
-      case 140:
+      case 140: 
         return ValidateAddressMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -776,8 +774,7 @@ class BlockchainApi {
   /// [command]请求命令数据
   /// [checkPwd]是否需要检查密码
   /// [checkLock]是否需要检查卡片已锁
-  Future<CommandResponse> scanCardWithCommand(
-      SendCommandMessage arg_sendCommandMessage) async {
+  Future<CommandResponse> scanCardWithCommand(SendCommandMessage arg_sendCommandMessage) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.scanCardWithCommand', codec,
         binaryMessenger: _binaryMessenger);
@@ -804,17 +801,12 @@ class BlockchainApi {
     }
   }
 
-  Future<CardMessage> scanCardAndDerive(
-      List<CurrencyInfoMessage?> arg_currencyList,
-      String arg_ndefLink,
-      String? arg_cardId,
-      String? arg_cardNo) async {
+  Future<CardMessage> scanCardAndDerive(List<CurrencyInfoMessage?> arg_currencyList, String arg_ndefLink, String? arg_cardId, String? arg_cardNo) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.scanCardAndDerive', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(
-            <Object?>[arg_currencyList, arg_ndefLink, arg_cardId, arg_cardNo])
-        as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(<Object?>[arg_currencyList, arg_ndefLink, arg_cardId, arg_cardNo]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -836,11 +828,9 @@ class BlockchainApi {
     }
   }
 
-  Future<CardMessage> createWalletAndDerive(
-      List<CurrencyInfoMessage?> arg_currencyList) async {
+  Future<CardMessage> createWalletAndDerive(List<CurrencyInfoMessage?> arg_currencyList) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-        'dev.flutter.pigeon.card_coin.BlockchainApi.createWalletAndDerive',
-        codec,
+        'dev.flutter.pigeon.card_coin.BlockchainApi.createWalletAndDerive', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
         await channel.send(<Object?>[arg_currencyList]) as List<Object?>?;
@@ -865,11 +855,9 @@ class BlockchainApi {
     }
   }
 
-  Future<void> loadCurrencyInfoList(
-      List<CurrencyInfoMessage?> arg_currencyList) async {
+  Future<void> loadCurrencyInfoList(List<CurrencyInfoMessage?> arg_currencyList) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-        'dev.flutter.pigeon.card_coin.BlockchainApi.loadCurrencyInfoList',
-        codec,
+        'dev.flutter.pigeon.card_coin.BlockchainApi.loadCurrencyInfoList', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
         await channel.send(<Object?>[arg_currencyList]) as List<Object?>?;
@@ -918,8 +906,7 @@ class BlockchainApi {
   }
 
   ///添加币种
-  Future<bool> addCurrencyList(
-      List<CurrencyInfoMessage?> arg_currencyList) async {
+  Future<bool> addCurrencyList(List<CurrencyInfoMessage?> arg_currencyList) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.addCurrencyList', codec,
         binaryMessenger: _binaryMessenger);
@@ -975,8 +962,7 @@ class BlockchainApi {
   }
 
   ///发送交易合约
-  Future<SendTransactionResponse> sendTransaction(
-      SendMessage arg_sendMessage) async {
+  Future<SendTransactionResponse> sendTransaction(SendMessage arg_sendMessage) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.sendTransaction', codec,
         binaryMessenger: _binaryMessenger);
@@ -1004,8 +990,7 @@ class BlockchainApi {
   }
 
   ///验证钱包地址
-  Future<bool> validateAddress(
-      ValidateAddressMessage arg_validateMessage) async {
+  Future<bool> validateAddress(ValidateAddressMessage arg_validateMessage) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.validateAddress', codec,
         binaryMessenger: _binaryMessenger);
@@ -1033,13 +1018,12 @@ class BlockchainApi {
   }
 
   ///清除原生币种缓存数据
-  Future<void> clearLocalCurrency(
-      String arg_cardId, List<String?> arg_coinIds) async {
+  Future<void> clearLocalCurrency(String arg_cardId, List<String?> arg_coinIds) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.clearLocalCurrency', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel
-        .send(<Object?>[arg_cardId, arg_coinIds]) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(<Object?>[arg_cardId, arg_coinIds]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1056,11 +1040,9 @@ class BlockchainApi {
     }
   }
 
-  Future<List<TransactionsHistory?>> loadTransactionHistoryList(
-      TransactionHistoryRequest arg_request) async {
+  Future<List<TransactionsHistory?>> loadTransactionHistoryList(TransactionHistoryRequest arg_request) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-        'dev.flutter.pigeon.card_coin.BlockchainApi.loadTransactionHistoryList',
-        codec,
+        'dev.flutter.pigeon.card_coin.BlockchainApi.loadTransactionHistoryList', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
         await channel.send(<Object?>[arg_request]) as List<Object?>?;
@@ -1086,13 +1068,12 @@ class BlockchainApi {
   }
 
   ///切换钱包
-  Future<bool> changeWallet(
-      String arg_cardId, List<CurrencyInfoMessage?> arg_currencyList) async {
+  Future<bool> changeWallet(String arg_cardId, List<CurrencyInfoMessage?> arg_currencyList) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.changeWallet', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel
-        .send(<Object?>[arg_cardId, arg_currencyList]) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(<Object?>[arg_cardId, arg_currencyList]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1117,8 +1098,7 @@ class BlockchainApi {
   ///上传奔溃信息
   Future<void> postCatchedException(String arg_error) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-        'dev.flutter.pigeon.card_coin.BlockchainApi.postCatchedException',
-        codec,
+        'dev.flutter.pigeon.card_coin.BlockchainApi.postCatchedException', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
         await channel.send(<Object?>[arg_error]) as List<Object?>?;
@@ -1142,8 +1122,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.signLightning', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel
-        .send(<Object?>[arg_signText, arg_isBtc]) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(<Object?>[arg_signText, arg_isBtc]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1192,13 +1172,12 @@ class BlockchainApi {
     }
   }
 
-  Future<List<ChainKeyMessage?>> getChainKeys(
-      String arg_cardId, List<String?> arg_blockchains) async {
+  Future<List<ChainKeyMessage?>> getChainKeys(String arg_cardId, List<String?> arg_blockchains) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.getChainKeys', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel
-        .send(<Object?>[arg_cardId, arg_blockchains]) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(<Object?>[arg_cardId, arg_blockchains]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1220,14 +1199,12 @@ class BlockchainApi {
     }
   }
 
-  Future<String> signText(
-      String arg_blockchainId, String arg_text, int? arg_chainId) async {
+  Future<String> signText(String arg_blockchainId, String arg_text, int? arg_chainId) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.signText', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
-        await channel.send(<Object?>[arg_blockchainId, arg_text, arg_chainId])
-            as List<Object?>?;
+        await channel.send(<Object?>[arg_blockchainId, arg_text, arg_chainId]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1249,14 +1226,12 @@ class BlockchainApi {
     }
   }
 
-  Future<String> signTransaction(
-      String arg_blockchainId, String arg_text, int? arg_chainId) async {
+  Future<String> signTransaction(String arg_blockchainId, String arg_text, int? arg_chainId) async {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.signTransaction', codec,
         binaryMessenger: _binaryMessenger);
     final List<Object?>? replyList =
-        await channel.send(<Object?>[arg_blockchainId, arg_text, arg_chainId])
-            as List<Object?>?;
+        await channel.send(<Object?>[arg_blockchainId, arg_text, arg_chainId]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1282,7 +1257,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.generateKey', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1335,7 +1311,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.getBitcoinPublicKey', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1361,7 +1338,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.resetNfcReaderMode', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1382,7 +1360,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.getEthPublicKey', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1408,8 +1387,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.makeAddresses', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel
-        .send(<Object?>[arg_networkId, arg_isBtc]) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(<Object?>[arg_networkId, arg_isBtc]) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1435,7 +1414,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.bindNetwork', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1456,7 +1436,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.isVpnActive', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1482,7 +1463,8 @@ class BlockchainApi {
     final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
         'dev.flutter.pigeon.card_coin.BlockchainApi.isDualSim', codec,
         binaryMessenger: _binaryMessenger);
-    final List<Object?>? replyList = await channel.send(null) as List<Object?>?;
+    final List<Object?>? replyList =
+        await channel.send(null) as List<Object?>?;
     if (replyList == null) {
       throw PlatformException(
         code: 'channel-error',
@@ -1526,11 +1508,11 @@ class _FlutterClientApiCodec extends StandardMessageCodec {
   @override
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
-      case 128:
+      case 128: 
         return BalanceResponse.decode(readValue(buffer)!);
-      case 129:
+      case 129: 
         return BlockchainErrorMessage.decode(readValue(buffer)!);
-      case 130:
+      case 130: 
         return CurrencyInfoMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1547,18 +1529,16 @@ abstract class FlutterClientApi {
   static void setup(FlutterClientApi? api, {BinaryMessenger? binaryMessenger}) {
     {
       final BasicMessageChannel<Object?> channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.card_coin.FlutterClientApi.updateCurrencyInfo',
-          codec,
+          'dev.flutter.pigeon.card_coin.FlutterClientApi.updateCurrencyInfo', codec,
           binaryMessenger: binaryMessenger);
       if (api == null) {
         channel.setMessageHandler(null);
       } else {
         channel.setMessageHandler((Object? message) async {
           assert(message != null,
-              'Argument for dev.flutter.pigeon.card_coin.FlutterClientApi.updateCurrencyInfo was null.');
+          'Argument for dev.flutter.pigeon.card_coin.FlutterClientApi.updateCurrencyInfo was null.');
           final List<Object?> args = (message as List<Object?>?)!;
-          final List<BalanceResponse?>? arg_currencyInfoList =
-              (args[0] as List<Object?>?)?.cast<BalanceResponse?>();
+          final List<BalanceResponse?>? arg_currencyInfoList = (args[0] as List<Object?>?)?.cast<BalanceResponse?>();
           assert(arg_currencyInfoList != null,
               'Argument for dev.flutter.pigeon.card_coin.FlutterClientApi.updateCurrencyInfo was null, expected non-null List<BalanceResponse?>.');
           try {
@@ -1566,9 +1546,8 @@ abstract class FlutterClientApi {
             return wrapResponse(result: output);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          } catch (e) {
-            return wrapResponse(
-                error: PlatformException(code: 'error', message: e.toString()));
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
           }
         });
       }

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
 
+import 'action.dart';
 import 'state.dart';
 
 Widget buildView(
@@ -18,13 +21,31 @@ Widget buildView(
       ),
       title: const Text('Cash Out Detail'),
     ),
-    body: state.isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : state.detail == null
-            ? const Center(
-                child: Text('No data',
-                    style: TextStyle(color: Colors.grey, fontSize: 15)))
-            : _DetailBody(detail: state.detail!),
+    body: RefreshIndicator(
+      onRefresh: () async {
+        final completer = Completer<void>();
+        dispatch(CashOutDetailActionCreator.onLoadDetail(completer: completer));
+        await completer.future;
+      },
+      child: state.detail != null
+          ? _DetailBody(detail: state.detail!)
+          : ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(viewService.context).size.height * 0.7,
+                  child: Center(
+                    child: state.isLoading
+                        ? const CircularProgressIndicator()
+                        : const Text(
+                            'No data',
+                            style: TextStyle(color: Colors.grey, fontSize: 15),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+    ),
   );
 }
 
@@ -41,6 +62,7 @@ class _DetailBody extends StatelessWidget {
     final title = 'Cash Out → ${detail.bankName} (****$last4)';
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       child: Column(
         children: [
           // ── 顶部图标 + 标题 + 金额 ───────────────────────────

@@ -15,30 +15,31 @@
         //         "card_coin"
         //     ]     // 自定义入口在 main.dart文
         // },
-        // {
-        //     "name": "card_coin",
-        //     "request": "launch",
-        //     "type": "dart",
-        //     "program": "lib/main_pro.dart" ,
-        //     "args": [
-        //         "--flavor",
-        //         "card_coin_pro"
-        //     ]
-        //          // 自定义入口在 main.dart文
-        // },
         {
             "name": "card_coin",
             "request": "launch",
             "type": "dart",
-            "program": "lib/main_google.dart" ,
+            "program": "lib/main_pro.dart" ,
             "args": [
                 "--flavor",
-                "card_coin_google",
+                "card_coin_pro",
                 "--debug"
-
-            ]  
+            ]
                  // 自定义入口在 main.dart文
         },
+        // {
+        //     "name": "card_coin",
+        //     "request": "launch",
+        //     "type": "dart",
+        //     "program": "lib/main_google.dart" ,
+        //     "args": [
+        //         "--flavor",
+        //         "card_coin_google",
+        //         "--debug"
+
+        //     ]  
+        //          // 自定义入口在 main.dart文
+        // },
        
     ]
 

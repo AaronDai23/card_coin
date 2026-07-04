@@ -1085,7 +1085,7 @@ Widget _itemWidgetBuild(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: cardInfo.isSelected
-                                  ? Colors.blue
+                                  ? Colors.orange
                                   : Colors.black),
                         )),
                     Text(
@@ -1094,7 +1094,7 @@ Widget _itemWidgetBuild(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color:
-                              cardInfo.isSelected ? Colors.blue : Colors.black),
+                              cardInfo.isSelected ? Colors.orange : Colors.black),
                     ),
                     Text(
                       '${cardInfo.wallets.length} tokens',

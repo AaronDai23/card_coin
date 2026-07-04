@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fish_redux/fish_redux.dart';
 
 import 'state.dart';
@@ -10,8 +12,8 @@ enum ConvertHistoryAction {
 }
 
 class ConvertHistoryActionCreator {
-  static Action onLoadHistory() =>
-      const Action(ConvertHistoryAction.loadHistory);
+  static Action onLoadHistory({Completer<void>? completer}) =>
+      Action(ConvertHistoryAction.loadHistory, payload: completer);
 
   static Action onLoadHistorySuccess(
           List<ConvertHistoryItem> rows, int total, int page, bool hasMore) =>

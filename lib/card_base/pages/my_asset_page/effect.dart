@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:card_coin/bean/page_field_config.dart';
 import 'package:card_coin/card_base/bean/asset_summary_info.dart';
 import 'package:card_coin/card_base/utils/log_util.dart';
 import 'package:card_coin/widget/custom_alert_dialog.dart';
@@ -9,12 +11,16 @@ import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
 import 'package:fish_redux/fish_redux.dart';
+import 'package:card_coin/utils/deep_link_manager.dart';
 import 'action.dart';
 import 'state.dart';
+
+StreamSubscription<RefreshMyAssetEvent>? _refreshMyAssetSub;
 
 Effect<MyAssetState>? buildEffect() {
   return combineEffects(<Object, Effect<MyAssetState>>{
     Lifecycle.initState: _onInit,
+    Lifecycle.dispose: _onDispose,
     MyAssetAction.loadData: _onloadData,
     MyAssetAction.pushWalletPage: _onPushWalletClick,
     MyAssetAction.investmentlist: _onInvestmentClick,
@@ -26,46 +32,176 @@ Effect<MyAssetState>? buildEffect() {
 }
 
 void _onInit(Action action, Context<MyAssetState> ctx) {
-  ctx.dispatch(MyAssetActionCreator.onLoadData());
+  _refreshMyAssetSub?.cancel();
+  _refreshMyAssetSub = eventBus.on<RefreshMyAssetEvent>().listen((_) {
+    if (!ctx.context.mounted) return;
+    ctx.dispatch(MyAssetActionCreator.onLoadData());
+  });
+
+  // Prevent stale UI: hide bottom buttons first, then apply cache/network config.
+  ctx.dispatch(MyAssetActionCreator.onUpdateBottomButtonsVisibility(
+    showInvestmentDetailButton: false,
+    showWalletButton: false,
+    pageFieldConfigs: const [],
+  ));
+
+  _preparePageFieldConfig(ctx).whenComplete(() {
+    ctx.dispatch(MyAssetActionCreator.onLoadData());
+  });
+}
+
+void _onDispose(Action action, Context<MyAssetState> ctx) {
+  _refreshMyAssetSub?.cancel();
+  _refreshMyAssetSub = null;
+}
+
+Future<void> _preparePageFieldConfig(Context<MyAssetState> ctx) async {
+  var configList = ctx.state.cardDetail?.pageFieldConfig ?? [];
+
+  if (configList.isEmpty) {
+    final latestUid = await LocalStorage.getCardUuid();
+    final detailUid = ctx.state.cardDetail?.uid;
+    final keyCandidates = <String>{
+      if (ctx.state.uid.isNotEmpty) ctx.state.uid,
+      if (latestUid != null && latestUid.isNotEmpty) latestUid,
+      if (detailUid != null && detailUid.isNotEmpty) detailUid,
+    };
+
+    String? cacheJson;
+    String? hitKey;
+    for (final uid in keyCandidates) {
+      final key = LocalStorage.pageFieldConfig + uid;
+      final value = await LocalStorage.getString(key);
+      print('[PageFieldConfigCache] read key=$key, len=${value?.length ?? 0}');
+      if (value?.isNotEmpty ?? false) {
+        cacheJson = value;
+        hitKey = key;
+        break;
+      }
+    }
+    if (hitKey != null) {
+      print('[PageFieldConfigCache] hit key=$hitKey');
+    }
+
+    if (cacheJson?.isNotEmpty ?? false) {
+      try {
+        final dynamic decoded = jsonDecode(cacheJson!);
+        if (decoded is List) {
+          configList = decoded
+              .map((e) {
+                if (e is Map<String, dynamic>) {
+                  return PageFieldConfig.fromJson(e);
+                }
+                if (e is String) {
+                  return PageFieldConfig.fromJson(
+                      jsonDecode(e) as Map<String, dynamic>);
+                }
+                return null;
+              })
+              .whereType<PageFieldConfig>()
+              .toList();
+        }
+      } catch (_) {
+        // Ignore broken cache and keep default visibility.
+      }
+    }
+  } else {
+    await LocalStorage.saveString(
+      LocalStorage.pageFieldConfig + ctx.state.uid,
+      jsonEncode(configList.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  ctx.state.pageFieldConfigs = configList;
+  _applyBottomActionVisibility(ctx, configList);
+}
+
+void _applyBottomActionVisibility(
+    Context<MyAssetState> ctx, List<PageFieldConfig> configList) {
+  bool showInvestmentDetailButton = false;
+  bool showWalletButton = false;
+
+  if (configList.isEmpty) {
+    ctx.dispatch(MyAssetActionCreator.onUpdateBottomButtonsVisibility(
+      showInvestmentDetailButton: showInvestmentDetailButton,
+      showWalletButton: showWalletButton,
+      pageFieldConfigs: configList,
+    ));
+    return;
+  }
+
+  final codes = configList
+      .map((e) => _normalizeFieldCode(e.fieldCode ?? ''))
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  showInvestmentDetailButton = codes.contains('investment_detail');
+  showWalletButton = codes.contains('wallet');
+
+  ctx.dispatch(MyAssetActionCreator.onUpdateBottomButtonsVisibility(
+    showInvestmentDetailButton: showInvestmentDetailButton,
+    showWalletButton: showWalletButton,
+    pageFieldConfigs: configList,
+  ));
+}
+
+String _normalizeFieldCode(String raw) {
+  final code = raw.trim().toLowerCase();
+  if (code.startsWith('#sym:')) {
+    return code.substring(5);
+  }
+  return code;
 }
 
 Future<void> _onloadData(Action action, Context<MyAssetState> ctx) async {
+  final completer = action.payload is Completer<void>
+      ? action.payload as Completer<void>
+      : null;
+
+  await _preparePageFieldConfig(ctx);
+
   Map<String, dynamic> params = {
     "uid": ctx.state.uid,
   };
   LogUtils.uid = ctx.state.uid;
 
-  var resultData = await HttpManager.getInstance()
-      .post(NetworkAddress.assetSummary, null, data: params);
-  if (resultData.isSuccess) {
-    AssetSummaryInfo assetSummaryInfo =
-        AssetSummaryInfo.fromJson(resultData.data);
-    //   List<VerifyMethod> verifyMethods =
-    //       datas.map((e) => VerifyMethod.fromJson(e)).toList();
-    List<AssetTypeData> types = assetSummaryInfo.assetTypeData!;
+  try {
+    var resultData = await HttpManager.getInstance()
+        .post(NetworkAddress.assetSummary, null, data: params);
+    if (resultData.isSuccess) {
+      AssetSummaryInfo assetSummaryInfo =
+          AssetSummaryInfo.fromJson(resultData.data);
+      //   List<VerifyMethod> verifyMethods =
+      //       datas.map((e) => VerifyMethod.fromJson(e)).toList();
+      List<AssetTypeData> types = assetSummaryInfo.assetTypeData!;
 
-    ctx.state.selectedTypes = types;
-    print('assetSummary resultData:${resultData.data}');
-    ctx.dispatch(MyAssetActionCreator.onLoadSuccess(assetSummaryInfo));
-    ctx.dispatch(MyAssetActionCreator.onSelectType('ALL'));
-  } else {
-    // 拦截器已对 40000（登录过期）、830016（钱包未同步）、10003333（VPN 异常）
-    // 弹过 dialog 并做了路由处理，此处不重复弹窗，否则会出现双弹窗甚至二次 pop 崩溃。
-    const interceptorHandledCodes = {40000, 830016, 10003333};
-    if (!interceptorHandledCodes.contains(resultData.code)) {
-      final BuildContext currentContext = ctx.context;
-      showDialog(
-          context: currentContext,
-          builder: (context) {
-            return ZenggeTextAlertDialog(resultData.message);
-          }).then((value) {
-        if (currentContext.mounted) {
-          Navigator.of(currentContext).pop();
-        }
-      });
+      ctx.state.selectedTypes = types;
+      print('assetSummary resultData:${resultData.data}');
+      ctx.dispatch(MyAssetActionCreator.onLoadSuccess(assetSummaryInfo));
+      ctx.dispatch(MyAssetActionCreator.onSelectType('ALL'));
+    } else {
+      // 拦截器已对 40000（登录过期）、830016（钱包未同步）、10003333（VPN 异常）
+      // 弹过 dialog 并做了路由处理，此处不重复弹窗，否则会出现双弹窗甚至二次 pop 崩溃。
+      const interceptorHandledCodes = {40000, 830016, 10003333};
+      if (!interceptorHandledCodes.contains(resultData.code)) {
+        final BuildContext currentContext = ctx.context;
+        showDialog(
+            context: currentContext,
+            builder: (context) {
+              return ZenggeTextAlertDialog(resultData.message);
+            }).then((value) {
+          if (currentContext.mounted) {
+            Navigator.of(currentContext).pop();
+          }
+        });
+      }
+      ctx.dispatch(MyAssetActionCreator.onLoadFailure(resultData.message));
+      return;
     }
-    ctx.dispatch(MyAssetActionCreator.onLoadFailure(resultData.message));
-    return;
+  } finally {
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
   }
 }
 

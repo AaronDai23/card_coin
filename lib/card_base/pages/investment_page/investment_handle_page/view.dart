@@ -592,7 +592,7 @@ void _showTimePicker(
       ),
       hideHeader: true,
       title: const Text("Select Cycle"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },
@@ -674,7 +674,7 @@ void _showThreeColumnPicker(Dispatch dispatch, InvestmentHandleState state,
       hideHeader: true,
       // selecteds: [3, 0, 2],
       title: const Text("Please Select"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },
@@ -712,7 +712,7 @@ void _showTwoColumnPicker(Dispatch dispatch, InvestmentHandleState state,
       hideHeader: true,
       // selecteds: [0, 0],
       title: const Text("Please Select"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },
@@ -749,7 +749,7 @@ void _showOneColumnPicker(Dispatch dispatch, InvestmentHandleState state,
       hideHeader: true,
       selecteds: [0],
       title: const Text("Please Select"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },

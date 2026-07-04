@@ -66,7 +66,7 @@ Widget buildView(
                         alignment: Alignment.topCenter,
                         builder: DotSwiperPaginationBuilder(
                             color: Colors.white,
-                            activeColor: Colors.blue,
+                            activeColor: Colors.orange,
                             size: 6.0,
                             activeSize: 6.0)),
                     itemBuilder: (BuildContext context, int index) {

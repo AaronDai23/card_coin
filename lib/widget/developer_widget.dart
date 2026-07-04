@@ -63,7 +63,7 @@ class _DeveloperWidgetState extends State<DeveloperWidget> {
   Widget _developerWidget() {
     return Container(
       child: Card(
-        color: Colors.blue.withOpacity(0.5),
+        color: Colors.orange.withOpacity(0.5),
         elevation: 1,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

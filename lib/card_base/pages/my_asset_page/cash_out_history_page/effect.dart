@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -22,31 +24,42 @@ void _onInit(Action action, Context<CashOutHistoryState> ctx) {
 
 Future<void> _onLoadHistory(
     Action action, Context<CashOutHistoryState> ctx) async {
+  final completer = action.payload is Completer<void>
+      ? action.payload as Completer<void>
+      : null;
+
   ctx.dispatch(CashOutHistoryActionCreator.onUpdateLoading(true));
 
-  final result = await HttpManager.getInstance().get(
-    NetworkAddress.cashOutHistory,
-    queryParameters: {
-      'uid': ctx.state.uid,
-      'page': 1,
-      'pageSize': _pageSize,
-    },
-  );
+  try {
+    final result = await HttpManager.getInstance().get(
+      NetworkAddress.cashOutHistory,
+      queryParameters: {
+        'uid': ctx.state.uid,
+        'page': 1,
+        'pageSize': _pageSize,
+      },
+    );
 
-  if (result.isSuccess && result.data is Map) {
-    final data = result.data as Map<String, dynamic>;
-    final total = int.tryParse(data['total']?.toString() ?? '0') ?? 0;
-    final rawRows = data['rows'];
-    final rows = rawRows is List
-        ? rawRows
-            .map((e) => CashOutHistoryItem.fromJson(e as Map<String, dynamic>))
-            .toList()
-        : <CashOutHistoryItem>[];
-    ctx.dispatch(CashOutHistoryActionCreator.onLoadHistorySuccess(
-        rows, total, 1, rows.length < _pageSize));
-  } else {
-    ctx.dispatch(CashOutHistoryActionCreator.onUpdateLoading(false));
-    showToast(result.message);
+    if (result.isSuccess && result.data is Map) {
+      final data = result.data as Map<String, dynamic>;
+      final total = int.tryParse(data['total']?.toString() ?? '0') ?? 0;
+      final rawRows = data['rows'];
+      final rows = rawRows is List
+          ? rawRows
+              .map(
+                  (e) => CashOutHistoryItem.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : <CashOutHistoryItem>[];
+      ctx.dispatch(CashOutHistoryActionCreator.onLoadHistorySuccess(
+          rows, total, 1, rows.length < total));
+    } else {
+      ctx.dispatch(CashOutHistoryActionCreator.onUpdateLoading(false));
+      showToast(result.message);
+    }
+  } finally {
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
   }
 }
 
@@ -76,8 +89,9 @@ Future<void> _onLoadMore(
             .map((e) => CashOutHistoryItem.fromJson(e as Map<String, dynamic>))
             .toList()
         : <CashOutHistoryItem>[];
+    final loaded = (nextPage - 1) * _pageSize + rows.length;
     ctx.dispatch(CashOutHistoryActionCreator.onLoadHistorySuccess(
-        rows, total, nextPage, rows.length < _pageSize));
+        rows, total, nextPage, loaded < total));
   } else {
     ctx.dispatch(CashOutHistoryActionCreator.onUpdateLoading(false));
     showToast(result.message);

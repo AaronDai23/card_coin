@@ -14,7 +14,7 @@ import 'app.dart';
 /// flutter build apk --flavor best_wish -t lib/main_best_wish.dart
 Future<void> main() async {
   var configuredApp = AppConfig(
-    appDisplayName: "ChipBase",
+    appDisplayName: "OfferVas",
     appInternalId: AppType.googleLite,
     stringResource: StringResourceMainGoogleLite(),
     child: const MyApp(),

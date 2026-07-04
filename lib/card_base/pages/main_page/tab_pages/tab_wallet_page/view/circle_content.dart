@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 
 class CircledContainer extends StatefulWidget {
   final Widget child;
   final double padding;
-  final Color borderColor;
+  final Color? borderColor;
   final double borderWidth;
 
   const CircledContainer({
     super.key,
     required this.child,
     this.padding = 20,
-    this.borderColor = Colors.grey,
+    this.borderColor,
     this.borderWidth = 2,
   });
 
@@ -45,6 +46,10 @@ class _CircledContainerState extends State<CircledContainer> {
   @override
   Widget build(BuildContext context) {
     const double diameter = 280;
+    final Color resolvedBorderColor =
+        widget.borderColor ?? AppThemeConfig.appBarBackground.withOpacity(0.65);
+    final Color resolvedBackgroundColor =
+        AppThemeConfig.appBarBackground.withOpacity(0.08);
 
     return Stack(
       alignment: Alignment.center,
@@ -54,11 +59,11 @@ class _CircledContainerState extends State<CircledContainer> {
             width: diameter,
             height: diameter,
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
+              color: resolvedBackgroundColor,
               shape: BoxShape.rectangle,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: widget.borderColor,
+                color: resolvedBorderColor,
                 width: widget.borderWidth,
               ),
             ),

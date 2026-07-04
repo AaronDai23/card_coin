@@ -171,7 +171,7 @@ Widget buildView(
                                     backgroundColor: detailInfo.receiveStatus
                                                 .toUpperCase() ==
                                             "PENDING"
-                                        ? Colors.blue
+                                        ? Colors.orange
                                         : Colors.grey,
                                     foregroundColor: Colors.white,
                                   ), // 禁用非 "PENDING" 状态的按钮

@@ -21,7 +21,7 @@ final navGK = GlobalKey<NavigatorState>();
 /// flutter build apk --flavor card_coin -t lib/main.dart
 Future<void> main() async {
   var configuredApp = AppConfig(
-    appDisplayName: "ChipBase",
+    appDisplayName: "OfferVas",
     appInternalId: AppType.googleLite,
     stringResource: StringResourceMainPro(),
     child: const MyApp(),

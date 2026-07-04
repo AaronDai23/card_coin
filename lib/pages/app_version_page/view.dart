@@ -38,17 +38,21 @@ Widget buildView(
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: LoadAssetImage(
-                    '${AppConfig.of(viewService.context).appInternalId == AppType.googleLite ? '2' : '1'}/app_logo',
+                    '${AppConfig.of(viewService.context).appInternalId == AppType.pro ? '2' : '1'}/app_logo',
                     width: 70,
                     height: 70,
                     fit: BoxFit.contain,
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(right: 10, left: 10, bottom: 10),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(right: 10, left: 10, bottom: 10),
                   child: Text(
-                    "ChipBase",
-                    style: TextStyle(fontSize: 20),
+                    AppConfig.of(viewService.context).appInternalId ==
+                            AppType.bestWish
+                        ? 'Chipbase'
+                        : 'OfferVas',
+                    style: const TextStyle(fontSize: 20),
                   ),
                 ),
                 const SizedBox(

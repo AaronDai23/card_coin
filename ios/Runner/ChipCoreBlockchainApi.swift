@@ -1,6 +1,12 @@
 import CoreNFC
 import CryptoSwift
+#if os(iOS)
 import Flutter
+#elseif os(macOS)
+import FlutterMacOS
+#else
+#error("Unsupported platform.")
+#endif
 import Foundation
 
 final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
@@ -18,9 +24,10 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
 
   func scanCardWithCommand(sendCommandMessage: SendCommandMessage, completion: @escaping (Result<CommandResponse, Error>) -> Void) {
     guard let command = sendCommandMessage.command?.data else {
-      completion(.failure(PigeonError(code: "invalid-argument", message: "command 不能为空", details: nil)))
+      completion(.failure(FlutterError(code: "invalid-argument", message: "command 不能为空", details: nil)))
       return
     }
+    let ndefLink = sendCommandMessage.ndefLink.flatMap { $0.isEmpty ? nil : $0 }
 
     sessionManager.withSession(appletId: sendCommandMessage.appletId?.data, operation: { channel, finish in
       channel.sendRaw(apduData: command) { outcome in
@@ -29,25 +36,24 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
           self.state.lastCardId = channel.cardId
           let statusClient = HdWalletCardClient(channel: channel)
           statusClient.getStatus { statusResult in
-            switch statusResult {
-            case .success(let status):
+            let status = try? statusResult.get()
+            // 写入 NDEF URL（如果调用方提供了 ndefLink）
+            func buildAndFinish() {
               finish(.success(CommandResponse(
                 cardId: channel.cardId,
-                appletVersionCode: status.versionCode ?? "",
-                appletVersion: status.version ?? "",
+                appletVersionCode: status?.versionCode ?? "",
+                appletVersion: status?.version ?? "",
                 isActivated: true,
-                resetCount: status.resetCount,
+                resetCount: status?.resetCount ?? 0,
                 data: FlutterStandardTypedData(bytes: response)
               )))
-            case .failure:
-              finish(.success(CommandResponse(
-                cardId: channel.cardId,
-                appletVersionCode: "",
-                appletVersion: "",
-                isActivated: true,
-                resetCount: 0,
-                data: FlutterStandardTypedData(bytes: response)
-              )))
+            }
+            if let url = ndefLink {
+              statusClient.writeNdefAndVerify(url: url) { _ in
+                buildAndFinish()
+              }
+            } else {
+              buildAndFinish()
             }
           }
         case .failure(let error):
@@ -59,7 +65,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let value as CommandResponse):
         completion(.success(value))
       case .success:
-        completion(.failure(PigeonError(code: "invalid-response", message: "scanCardWithCommand 返回类型错误", details: nil)))
+        completion(.failure(FlutterError(code: "invalid-response", message: "scanCardWithCommand 返回类型错误", details: nil)))
       case .failure(let error):
         completion(.failure(error))
       }
@@ -147,7 +153,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let value as Bool):
         completion(.success(value))
       case .success:
-        completion(.failure(PigeonError(code: "invalid-response", message: "addCurrencyList 返回类型错误", details: nil)))
+        completion(.failure(FlutterError(code: "invalid-response", message: "addCurrencyList 返回类型错误", details: nil)))
       case .failure(let error):
         completion(.failure(error))
       }
@@ -167,7 +173,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
         }
         DispatchQueue.main.async { completion(.success(fees)) }
       } catch {
-        DispatchQueue.main.async { completion(.failure(PigeonError(code: "fee-error", message: error.localizedDescription, details: nil))) }
+        DispatchQueue.main.async { completion(.failure(FlutterError(code: "fee-error", message: error.localizedDescription, details: nil))) }
       }
     }
   }
@@ -209,7 +215,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
           if let hex = self.state.findPublicKeyHex(keyword: "eth"), let d = Data(hexString: hex) {
             pubKeyData = d
           } else {
-            finish(.failure(PigeonError(code: "key-missing", message: "尚未派生 ETH 公钥", details: nil)))
+            finish(.failure(FlutterError(code: "key-missing", message: "尚未派生 ETH 公钥", details: nil)))
             return
           }
           client.sign(path: spec.defaultPath(), digest: signingHash) { signResult in
@@ -235,17 +241,17 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
                 let txHash = try ChainClient.ethBroadcast(rawTx: rawTx, rpc: rpc)
                 DispatchQueue.main.async { completion(.success(SendTransactionResponse(isSuccess: true, errorMsg: txHash))) }
               } catch {
-                DispatchQueue.main.async { completion(.failure(PigeonError(code: "broadcast-error", message: error.localizedDescription, details: nil))) }
+                DispatchQueue.main.async { completion(.failure(FlutterError(code: "broadcast-error", message: error.localizedDescription, details: nil))) }
               }
             }
           case .success:
-            DispatchQueue.main.async { completion(.failure(PigeonError(code: "sign-error", message: "签名结果类型错误", details: nil))) }
+            DispatchQueue.main.async { completion(.failure(FlutterError(code: "sign-error", message: "签名结果类型错误", details: nil))) }
           case .failure(let error):
             DispatchQueue.main.async { completion(.failure(error)) }
           }
         })
       } catch {
-        DispatchQueue.main.async { completion(.failure(PigeonError(code: "eth-prepare-error", message: error.localizedDescription, details: nil))) }
+        DispatchQueue.main.async { completion(.failure(FlutterError(code: "eth-prepare-error", message: error.localizedDescription, details: nil))) }
       }
     }
   }
@@ -258,7 +264,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       do {
         let utxos = try ChainClient.fetchBtcUtxos(address: from, isTest: isTest)
         guard !utxos.isEmpty else {
-          DispatchQueue.main.async { completion(.failure(PigeonError(code: "no-utxo", message: "该地址无可用 UTXO", details: nil))) }
+          DispatchQueue.main.async { completion(.failure(FlutterError(code: "no-utxo", message: "该地址无可用 UTXO", details: nil))) }
           return
         }
         let feeRate = try msg.gasPrice.flatMap { UInt64($0) } ?? ChainClient.fetchBtcFeeRate(isTest: isTest)
@@ -315,17 +321,17 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
                 let txId = try ChainClient.btcBroadcast(rawTx: rawTx, isTest: isTest)
                 DispatchQueue.main.async { completion(.success(SendTransactionResponse(isSuccess: true, errorMsg: txId))) }
               } catch {
-                DispatchQueue.main.async { completion(.failure(PigeonError(code: "broadcast-error", message: error.localizedDescription, details: nil))) }
+                DispatchQueue.main.async { completion(.failure(FlutterError(code: "broadcast-error", message: error.localizedDescription, details: nil))) }
               }
             }
           case .success:
-            DispatchQueue.main.async { completion(.failure(PigeonError(code: "sign-error", message: "BTC 签名结果类型错误", details: nil))) }
+            DispatchQueue.main.async { completion(.failure(FlutterError(code: "sign-error", message: "BTC 签名结果类型错误", details: nil))) }
           case .failure(let error):
             DispatchQueue.main.async { completion(.failure(error)) }
           }
         })
       } catch {
-        DispatchQueue.main.async { completion(.failure(PigeonError(code: "btc-prepare-error", message: error.localizedDescription, details: nil))) }
+        DispatchQueue.main.async { completion(.failure(FlutterError(code: "btc-prepare-error", message: error.localizedDescription, details: nil))) }
       }
     }
   }
@@ -394,7 +400,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let value as ChainKeyInfo):
         completion(.success(value))
       case .success:
-        completion(.failure(PigeonError(code: "invalid-response", message: "createChainKeys 返回类型错误", details: nil)))
+        completion(.failure(FlutterError(code: "invalid-response", message: "createChainKeys 返回类型错误", details: nil)))
       case .failure(let error):
         completion(.failure(error))
       }
@@ -441,7 +447,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let value as String):
         completion(.success(value))
       case .success:
-        completion(.failure(PigeonError(code: "invalid-response", message: "generateKey 返回类型错误", details: nil)))
+        completion(.failure(FlutterError(code: "invalid-response", message: "generateKey 返回类型错误", details: nil)))
       case .failure(let error):
         completion(.failure(error))
       }
@@ -498,7 +504,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
         // Use "pin-required" code so the SDK calls session.invalidate() with no error message
         // (silent, fast ~0.3 s dismiss) instead of invalidate(errorMessage:) which shows text
         // for 1.5 s. The completion block below translates the sentinel back to "uid-mismatch".
-        finish(.failure(PigeonError(code: "pin-required", message: "_uid_mismatch_", details: channel.cardId)))
+        finish(.failure(FlutterError(code: "pin-required", message: "_uid_mismatch_", details: channel.cardId)))
         return
       }
 
@@ -525,13 +531,13 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let value as CardMessage):
         completion(.success(value))
       case .success:
-        completion(.failure(PigeonError(code: "invalid-response", message: "deriveCard 返回类型错误", details: nil)))
+        completion(.failure(FlutterError(code: "invalid-response", message: "deriveCard 返回类型错误", details: nil)))
       case .failure(let error):
         // Translate sentinel back to uid-mismatch (sentinel was used to get silent NFC close).
-        if let pigeonErr = error as? PigeonError,
+        if let pigeonErr = error as? FlutterError,
            pigeonErr.code == "pin-required",
            pigeonErr.message == "_uid_mismatch_" {
-          completion(.failure(PigeonError(code: "uid-mismatch", message: "WrongCardNumber", details: pigeonErr.details)))
+          completion(.failure(FlutterError(code: "uid-mismatch", message: "WrongCardNumber", details: pigeonErr.details)))
         } else {
           completion(.failure(self.friendlyNfcTagLostError(error)))
         }
@@ -552,7 +558,7 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
 
   private func ensureMasterKey(client: HdWalletCardClient, status: CardStatus, generateIfMissing: Bool, currencies: [CurrencyInfoMessage], completion: @escaping (Result<CardSnapshot, Error>) -> Void) {
     if !generateIfMissing && !status.hasKeyPair {
-      completion(.failure(PigeonError(code: "key-not-found", message: "卡片内尚未生成密钥对", details: nil)))
+      completion(.failure(FlutterError(code: "key-not-found", message: "卡片内尚未生成密钥对", details: nil)))
       return
     }
 
@@ -593,12 +599,12 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
   /// 1. Raw NFCReaderError (before IOSNfcErrorMapper runs) — check localizedDescription.
   /// 2. PigeonError already mapped by the SDK — check code / message fields.
   private func friendlyNfcTagLostError(_ error: Error) -> Error {
-    let friendly = PigeonError(
+    let friendly = FlutterError(
       code: "nfc-tag-lost",
       message: "Card moved — please hold the card still and try again.",
       details: nil
     )
-    if let pigeonErr = error as? PigeonError {
+    if let pigeonErr = error as? FlutterError {
       // SDK mapped it to nfc-tag-lost (e.g. tagConnectionLost) — normalise message.
       if pigeonErr.code == "nfc-tag-lost" { return friendly }
       // SDK mapped it to nfc-io with raw localised description (e.g. tagResponseError).
@@ -704,15 +710,15 @@ final class ChipCoreBlockchainApi: NSObject, BlockchainApi {
       case .success(let value as String):
         completion(.success(value))
       case .success:
-        completion(.failure(PigeonError(code: "invalid-response", message: "signDigest 返回类型错误", details: nil)))
+        completion(.failure(FlutterError(code: "invalid-response", message: "signDigest 返回类型错误", details: nil)))
       case .failure(let error):
         completion(.failure(error))
       }
     })
   }
 
-  private func notImplementedError(_ message: String) -> PigeonError {
-    PigeonError(code: "not-implemented", message: message, details: nil)
+  private func notImplementedError(_ message: String) -> FlutterError {
+    FlutterError(code: "not-implemented", message: message, details: nil)
   }
 }
 
@@ -837,17 +843,17 @@ private final class IOSIso7816SessionManager {
 
   func withSession(appletId: Data?, operation: @escaping (IOSSessionChannel, @escaping (Result<Any, Error>) -> Void) -> Void, completion: @escaping (Result<Any, Error>) -> Void) {
     guard #available(iOS 13.0, *) else {
-      completion(.failure(PigeonError(code: "nfc-unavailable", message: "iOS 13 及以上才支持 ISO 7816 标签会话", details: nil)))
+      completion(.failure(FlutterError(code: "nfc-unavailable", message: "iOS 13 及以上才支持 ISO 7816 标签会话", details: nil)))
       return
     }
     guard NFCTagReaderSession.readingAvailable else {
-      completion(.failure(PigeonError(code: "nfc-unavailable", message: "设备不支持 NFC 读卡", details: nil)))
+      completion(.failure(FlutterError(code: "nfc-unavailable", message: "设备不支持 NFC 读卡", details: nil)))
       return
     }
 
     let delegate = ISO7816TagSessionDelegate(appletId: appletId, operation: operation, completion: completion)
     guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: delegate) else {
-      completion(.failure(PigeonError(code: "nfc-session-error", message: "无法创建 NFC 会话", details: nil)))
+      completion(.failure(FlutterError(code: "nfc-session-error", message: "无法创建 NFC 会话", details: nil)))
       return
     }
     session.alertMessage = "Hold your card near iPhone camera on upper back, until you see a ✅"
@@ -890,7 +896,7 @@ private final class ISO7816TagSessionDelegate: NSObject, NFCTagReaderSessionDele
 
   func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
     guard let firstTag = tags.first else {
-      finish(.failure(PigeonError(code: "tag-missing", message: "未检测到卡片", details: nil)))
+      finish(.failure(FlutterError(code: "tag-missing", message: "未检测到卡片", details: nil)))
       return
     }
     session.connect(to: firstTag) { connectError in
@@ -899,7 +905,7 @@ private final class ISO7816TagSessionDelegate: NSObject, NFCTagReaderSessionDele
         return
       }
       guard case let .iso7816(tag) = firstTag else {
-        self.finish(.failure(PigeonError(code: "tag-unsupported", message: "检测到的卡片不支持 ISO 7816", details: nil)))
+        self.finish(.failure(FlutterError(code: "tag-unsupported", message: "检测到的卡片不支持 ISO 7816", details: nil)))
         return
       }
       self.selectAppletIfNeeded(tag: tag, tagId: tag.identifier)
@@ -945,7 +951,7 @@ private final class ISO7816TagSessionDelegate: NSObject, NFCTagReaderSessionDele
       // the error dialog within ~1 second of card detection.
       switch result {
       case .failure(let error):
-        if let pigeon = error as? PigeonError, pigeon.code == "uid-mismatch" {
+        if let pigeon = error as? FlutterError, pigeon.code == "uid-mismatch" {
           session?.invalidate(errorMessage: "Wrong card detected")
         } else {
           session?.invalidate(errorMessage: " ")
@@ -1014,7 +1020,7 @@ private final class HdWalletCardClient {
         Result {
           let tags = try self.parseResponse(payload)
           guard let signature = tags[HdWalletApdu.tagSignature] else {
-            throw PigeonError(code: "invalid-response", message: "签名响应缺少 0x98 标签", details: nil)
+            throw FlutterError(code: "invalid-response", message: "签名响应缺少 0x98 标签", details: nil)
           }
           return signature
         }
@@ -1025,10 +1031,10 @@ private final class HdWalletCardClient {
   private func parseKeyMaterial(_ payload: Data) throws -> KeyMaterial {
     let tags = try parseResponse(payload)
     guard let publicKey = tags[HdWalletApdu.tagPublicKey] else {
-      throw PigeonError(code: "invalid-response", message: "缺少 0x90 公钥标签", details: nil)
+      throw FlutterError(code: "invalid-response", message: "缺少 0x90 公钥标签", details: nil)
     }
     guard let chainCode = tags[HdWalletApdu.tagChainCode] else {
-      throw PigeonError(code: "invalid-response", message: "缺少 0x92 ChainCode 标签", details: nil)
+      throw FlutterError(code: "invalid-response", message: "缺少 0x92 ChainCode 标签", details: nil)
     }
     return KeyMaterial(publicKey: publicKey, chainCode: chainCode)
   }
@@ -1043,7 +1049,7 @@ private final class HdWalletCardClient {
       let start = index + 2
       let end = start + length
       guard end <= bytes.count else {
-        throw PigeonError(code: "invalid-response", message: "TLV 长度越界", details: nil)
+        throw FlutterError(code: "invalid-response", message: "TLV 长度越界", details: nil)
       }
       tags[tag] = Data(bytes[start..<end])
       index = end
@@ -1231,7 +1237,7 @@ private extension CurrencyInfoMessage {
 private extension Data {
   func parseApdu() throws -> NFCISO7816APDU {
     if count < 4 {
-      throw PigeonError(code: "invalid-apdu", message: "APDU 长度至少为 4 字节", details: nil)
+      throw FlutterError(code: "invalid-apdu", message: "APDU 长度至少为 4 字节", details: nil)
     }
     let bytes = Array(self)
     let cla = bytes[0]
@@ -1245,7 +1251,7 @@ private extension Data {
     let start = 5
     let end = start + lc
     guard end <= count else {
-      throw PigeonError(code: "invalid-apdu", message: "APDU Lc 与实际数据长度不匹配", details: nil)
+      throw FlutterError(code: "invalid-apdu", message: "APDU Lc 与实际数据长度不匹配", details: nil)
     }
     let body = lc > 0 ? Data(bytes[start..<end]) : Data()
     let le = end < count ? Int(bytes[end]) : 0
@@ -1303,12 +1309,12 @@ private extension String {
 
 private func ensureSuccessStatus(response: Data, message: String) throws {
   guard response.count >= 2 else {
-    throw PigeonError(code: "apdu-error", message: "\(message): 响应长度不足", details: nil)
+    throw FlutterError(code: "apdu-error", message: "\(message): 响应长度不足", details: nil)
   }
   let sw1 = response[response.index(response.endIndex, offsetBy: -2)]
   let sw2 = response[response.index(response.endIndex, offsetBy: -1)]
   guard sw1 == 0x90, sw2 == 0x00 else {
-    throw PigeonError(code: "apdu-error", message: String(format: "%@: SW=%02X%02X", message, sw1, sw2), details: nil)
+    throw FlutterError(code: "apdu-error", message: String(format: "%@: SW=%02X%02X", message, sw1, sw2), details: nil)
   }
 }
 
@@ -1698,7 +1704,7 @@ private enum BtcEncoder {
         return (selected, total - valueSat - fee)
       }
     }
-    throw PigeonError(code: "insufficient-funds", message: "余额不足以支付金额和手续费", details: nil)
+    throw FlutterError(code: "insufficient-funds", message: "余额不足以支付金额和手续费", details: nil)
   }
 
   private static func estimateVsize(inputCount: Int, outputCount: Int) -> UInt64 {
@@ -1940,7 +1946,7 @@ private enum EthEncoder {
     } else if sigBytes[0] == 0x30 {
       (r, s) = try parseDer(sigBytes)
     } else {
-      throw PigeonError(code: "sig-format", message: "无法识别签名格式 length=\(sigBytes.count)", details: nil)
+      throw FlutterError(code: "sig-format", message: "无法识别签名格式 length=\(sigBytes.count)", details: nil)
     }
     // recId recovery: try 0 then 1 (simplified, use 0)
     return (r, s, 0)
@@ -1948,11 +1954,11 @@ private enum EthEncoder {
 
   private static func parseDer(_ der: Data) throws -> (BigUInt, BigUInt) {
     var offset = 2
-    guard der[offset] == 0x02 else { throw PigeonError(code: "sig-format", message: "DER R tag error", details: nil) }
+    guard der[offset] == 0x02 else { throw FlutterError(code: "sig-format", message: "DER R tag error", details: nil) }
     let rLen = Int(der[offset + 1])
     let r = BigUInt(der[(offset + 2)..<(offset + 2 + rLen)].hexString, radix: 16) ?? .zero
     offset += 2 + rLen
-    guard der[offset] == 0x02 else { throw PigeonError(code: "sig-format", message: "DER S tag error", details: nil) }
+    guard der[offset] == 0x02 else { throw FlutterError(code: "sig-format", message: "DER S tag error", details: nil) }
     let sLen = Int(der[offset + 1])
     let s = BigUInt(der[(offset + 2)..<(offset + 2 + sLen)].hexString, radix: 16) ?? .zero
     return (r, s)

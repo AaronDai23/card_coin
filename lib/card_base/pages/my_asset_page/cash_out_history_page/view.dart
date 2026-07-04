@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
@@ -19,52 +21,69 @@ Widget buildView(
       ),
       title: const Text('Cash Out History'),
     ),
-    body: state.isLoading && state.rows.isEmpty
-        ? const Center(child: CircularProgressIndicator())
-        : state.rows.isEmpty
-            ? const Center(
-                child: Text('No records',
-                    style: TextStyle(color: Colors.grey, fontSize: 15)))
-            : NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is ScrollEndNotification &&
-                      notification.metrics.pixels >=
-                          notification.metrics.maxScrollExtent - 80 &&
-                      state.hasMore &&
-                      !state.isLoading) {
-                    dispatch(CashOutHistoryActionCreator.onLoadMore());
-                  }
-                  return false;
-                },
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: state.rows.length +
-                      (state.hasMore && state.isLoading ? 1 : 0),
-                  separatorBuilder: (_, __) =>
-                      const Divider(height: 1, indent: 72, endIndent: 16),
-                  itemBuilder: (context, index) {
-                    if (index == state.rows.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 2)),
-                      );
-                    }
-                    final item = state.rows[index];
-                    return GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => Navigator.of(context).pushNamed(
-                        'cashOutDetailPage',
-                        arguments: {
-                          'uid': state.uid,
-                          'cashOutAuditId': item.cashOutAuditId,
-                        },
-                      ),
-                      child: _HistoryCell(item: item, symbol: state.symbol),
-                    );
-                  },
+    body: RefreshIndicator(
+      onRefresh: () async {
+        final completer = Completer<void>();
+        dispatch(
+            CashOutHistoryActionCreator.onLoadHistory(completer: completer));
+        await completer.future;
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollEndNotification &&
+              notification.metrics.pixels >=
+                  notification.metrics.maxScrollExtent - 80 &&
+              state.rows.isNotEmpty &&
+              state.hasMore &&
+              !state.isLoading) {
+            dispatch(CashOutHistoryActionCreator.onLoadMore());
+          }
+          return false;
+        },
+        child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: state.rows.isEmpty
+              ? 1
+              : state.rows.length + (state.hasMore && state.isLoading ? 1 : 0),
+          separatorBuilder: (_, __) => state.rows.isEmpty
+              ? const SizedBox.shrink()
+              : const Divider(height: 1, indent: 72, endIndent: 16),
+          itemBuilder: (context, index) {
+            if (state.rows.isEmpty) {
+              return SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Center(
+                  child: state.isLoading
+                      ? const CircularProgressIndicator()
+                      : const Text('No records',
+                          style: TextStyle(color: Colors.grey, fontSize: 15)),
                 ),
+              );
+            }
+
+            if (index == state.rows.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+            final item = state.rows[index];
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).pushNamed(
+                'cashOutDetailPage',
+                arguments: {
+                  'uid': state.uid,
+                  'cashOutAuditId': item.cashOutAuditId,
+                },
               ),
+              child: _HistoryCell(item: item, symbol: state.symbol),
+            );
+          },
+        ),
+      ),
+    ),
   );
 }
 

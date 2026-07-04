@@ -11,7 +11,7 @@ class ChainsDataList {
       chainId: 'eip155:1',
       name: 'Ethereum',
       logo: '/chain-logos/eip155-1.png',
-      color: Colors.blue.shade300,
+      color: Colors.orange.shade300,
       rpc: ['https://eth.drpc.org'],
     ),
     ChainMetadata(
@@ -29,7 +29,7 @@ class ChainsDataList {
       chainId: 'eip155:42161',
       name: 'Arbitrum',
       logo: '/chain-logos/eip155-42161.png',
-      color: Colors.blue,
+      color: Colors.orange,
       rpc: ['https://arbitrum.blockpi.network/v1/rpc/public'],
     ),
     const ChainMetadata(
@@ -89,7 +89,7 @@ class ChainsDataList {
     //   chainId: 'eip155:11155111',
     //   name: 'Sepolia',
     //   logo: '/chain-logos/eip155-1.png',
-    //   color: Colors.blue.shade300,
+    //   color: Colors.orange.shade300,
     //   isTestnet: true,
     //   rpc: ['https://ethereum-sepolia.publicnode.com'],
     // ),

@@ -11,11 +11,11 @@ import 'app.dart';
 ///执行命令运行项目
 /// flutter run --flavor card_coin_pro -t lib/main_pro.dart
 ///打包
-/// flutter build apk --flavor card_coin_pro -t lib/main_pro.dart
+/// flutter build apk --flavor card_coin_pro -t lib/main_pro.dart --release
 
 Future<void> main() async {
   var configuredApp = AppConfig(
-    appDisplayName: "AirChip3 Pro",
+    appDisplayName: "Chipbase",
     appInternalId: AppType.pro,
     stringResource: StringResourceMainPro(),
     child: const MyApp(),

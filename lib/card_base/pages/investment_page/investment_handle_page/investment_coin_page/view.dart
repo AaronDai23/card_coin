@@ -60,7 +60,7 @@ Widget buildView(
                                               alignment: Alignment.center,
                                               child: const Icon(
                                                 Icons.check_box,
-                                                color: Colors.blue,
+                                                color: Colors.orange,
                                                 size: 20,
                                               ),
                                             )

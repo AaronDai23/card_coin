@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fish_redux/fish_redux.dart';
 
 import 'state.dart';
@@ -9,7 +11,8 @@ enum CashOutDetailAction {
 }
 
 class CashOutDetailActionCreator {
-  static Action onLoadDetail() => const Action(CashOutDetailAction.loadDetail);
+  static Action onLoadDetail({Completer<void>? completer}) =>
+      Action(CashOutDetailAction.loadDetail, payload: completer);
 
   static Action onLoadDetailSuccess(CashOutDetailInfo detail) =>
       Action(CashOutDetailAction.loadDetailSuccess, payload: detail);

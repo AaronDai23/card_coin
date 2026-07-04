@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -22,32 +24,43 @@ void _onInit(Action action, Context<ConvertHistoryState> ctx) {
 
 Future<void> _onLoadHistory(
     Action action, Context<ConvertHistoryState> ctx) async {
+  final completer = action.payload is Completer<void>
+      ? action.payload as Completer<void>
+      : null;
+
   ctx.dispatch(ConvertHistoryActionCreator.onUpdateLoading(true));
 
-  final result = await HttpManager.getInstance().get(
-    NetworkAddress.assetExchangeHistory,
-    queryParameters: {
-      'uid': ctx.state.uid,
-      'page': 1,
-      'pageSize': _pageSize,
-    },
-  );
+  try {
+    final result = await HttpManager.getInstance().get(
+      NetworkAddress.assetExchangeHistory,
+      queryParameters: {
+        'uid': ctx.state.uid,
+        'page': 1,
+        'pageSize': _pageSize,
+      },
+    );
 
-  if (result.isSuccess && result.data is Map) {
-    final data = result.data as Map<String, dynamic>;
-    final total = int.tryParse(data['total']?.toString() ?? '0') ?? 0;
-    final rawRows = data['rows'];
-    final rows = rawRows is List
-        ? rawRows
-            .map((e) => ConvertHistoryItem.fromJson(e as Map<String, dynamic>))
-            .toList()
-        : <ConvertHistoryItem>[];
-    final loaded = rows.length;
-    ctx.dispatch(ConvertHistoryActionCreator.onLoadHistorySuccess(
-        rows, total, 1, loaded < total));
-  } else {
-    ctx.dispatch(ConvertHistoryActionCreator.onUpdateLoading(false));
-    showToast(result.message);
+    if (result.isSuccess && result.data is Map) {
+      final data = result.data as Map<String, dynamic>;
+      final total = int.tryParse(data['total']?.toString() ?? '0') ?? 0;
+      final rawRows = data['rows'];
+      final rows = rawRows is List
+          ? rawRows
+              .map(
+                  (e) => ConvertHistoryItem.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : <ConvertHistoryItem>[];
+      final loaded = rows.length;
+      ctx.dispatch(ConvertHistoryActionCreator.onLoadHistorySuccess(
+          rows, total, 1, loaded < total));
+    } else {
+      ctx.dispatch(ConvertHistoryActionCreator.onUpdateLoading(false));
+      showToast(result.message);
+    }
+  } finally {
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
   }
 }
 

@@ -16,7 +16,7 @@ import 'app.dart';
 Future<void> main() async {
   // _sharetraceHandle();
   var configuredApp = AppConfig(
-    appDisplayName: "ChipBase",
+    appDisplayName: "OfferVas",
     appInternalId: AppType.googleLite,
     stringResource: StringResourceMainGoogleLite(),
     child: const MyApp(),

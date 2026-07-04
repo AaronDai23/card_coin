@@ -159,6 +159,11 @@ Future<void> _onJump(Action action, Context<MainState> ctx) async {
   }
 
   ctx.dispatch(MainActionCreator.onApplyJump(targetIndex));
+
+  // When entering My Asset tab, force refresh so button layout follows latest pageFieldConfig cache.
+  if (targetTab.target == 'myAssetPage') {
+    eventBus.fire(RefreshMyAssetEvent());
+  }
 }
 
 bool _requiresCardUid(PageCategoryItem tab) {

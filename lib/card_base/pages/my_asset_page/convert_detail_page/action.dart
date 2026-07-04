@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fish_redux/fish_redux.dart';
 
 import 'state.dart';
@@ -9,7 +11,8 @@ enum ConvertDetailAction {
 }
 
 class ConvertDetailActionCreator {
-  static Action onLoadDetail() => const Action(ConvertDetailAction.loadDetail);
+  static Action onLoadDetail({Completer<void>? completer}) =>
+      Action(ConvertDetailAction.loadDetail, payload: completer);
 
   static Action onLoadDetailSuccess(ConvertDetailInfo detail) =>
       Action(ConvertDetailAction.loadDetailSuccess, payload: detail);

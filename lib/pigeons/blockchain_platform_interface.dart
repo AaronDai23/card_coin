@@ -72,6 +72,7 @@ abstract class BlockchainPlatform {
       bool checkPwd = false,
       bool checkLock = false,
       String? ndefLink,
+      String? ndefAar,
       String? cardNo,
       bool needRun = false,
       bool needSyscUid = false});

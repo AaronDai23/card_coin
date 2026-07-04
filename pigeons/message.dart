@@ -159,6 +159,7 @@ class SendCommandMessage {
 
   bool? checkLock;
   String? ndefLink;
+  String? ndefAar;
   String? cardNo;
   bool? checkPwd;
   bool? needRun;

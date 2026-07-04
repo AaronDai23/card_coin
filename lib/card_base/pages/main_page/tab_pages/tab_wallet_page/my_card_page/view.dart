@@ -8,6 +8,7 @@ import 'package:card_coin/custom_widget/load_image.dart';
 import 'package:card_coin/pages/main_page/hd_wallet_page/utils/cryptos_prices_utils.dart';
 import 'package:card_coin/utils/startup_time.dart';
 import 'package:card_coin/widget/onInvestment_card_section.dart';
+import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 import 'package:card_coin/widget/time_update_view.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
@@ -73,9 +74,9 @@ Widget buildView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const LoadAssetImage(
+                          LoadAssetImage(
                             '1/nfc_icon',
-                            color: Colors.blueAccent,
+                            color: AppThemeConfig.appBarBackground,
                           ),
                           SizedBox(height: screenSize.width <= 480 ? 10 : 20),
                           Text(
@@ -135,7 +136,7 @@ Widget buildView(
         //                     children: [
         //                       LoadAssetImage(
         //                         '1/nfc_icon',
-        //                         color: Colors.blueAccent,
+        //                         color: Colors.deepOrangeAccent,
         //                       ),
         //                       SizedBox(
         //                           height: screenSize.width <= 480 ? 10 : 20),
@@ -172,9 +173,9 @@ Widget buildView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const LoadAssetImage(
+                        LoadAssetImage(
                           '1/nfc_icon',
-                          color: Colors.blueAccent,
+                          color: AppThemeConfig.appBarBackground,
                         ),
                         SizedBox(height: screenSize.width <= 480 ? 10 : 20),
                         Text(
@@ -1877,7 +1878,7 @@ Widget getBottomButon(
                   fontSize: 12, color: Color.fromARGB(255, 51, 51, 51)),
             ),
             Switch(
-              activeThumbColor: const Color.fromARGB(255, 49, 165, 255),
+              activeThumbColor: const Color(0xFFF58A1F),
               value: state.isSwitched,
               onChanged: (value) {
                 dispatch(MyCardActionCreator.onExchangeCardSwitch(value));
@@ -1916,7 +1917,7 @@ Widget getBottomButon(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Color.fromARGB(255, 49, 165, 255), // 左边颜色
+                  Color(0xFFF58A1F), // 左边颜色
                   Color.fromARGB(255, 9, 116, 255), // 右边颜色
                 ],
               ),
@@ -2314,7 +2315,7 @@ Widget _buildMergedInvestmentSummaryCard(
                         },
                         child: Container(
                           decoration: const BoxDecoration(
-                            color: Color.fromARGB(255, 49, 165, 255),
+                            color: Color(0xFFF58A1F),
                             borderRadius: BorderRadius.horizontal(
                               left: Radius.circular(20),
                               right: Radius.circular(20),
@@ -2475,7 +2476,7 @@ Widget buildNewActiveView(
                                       child: Icon(
                                         size: 15,
                                         Icons.info,
-                                        color: Colors.blue,
+                                        color: Colors.orange,
                                       ),
                                     ),
                                   ),
@@ -2570,7 +2571,7 @@ Widget buildNewActiveView(
                                         child: Icon(
                                           size: 15,
                                           Icons.info,
-                                          color: Colors.blue,
+                                          color: Colors.orange,
                                         ),
                                       ),
                                     ),
@@ -2626,7 +2627,7 @@ Widget buildNewActiveView(
                                         child: Icon(
                                           size: 15,
                                           Icons.info,
-                                          color: Colors.blue,
+                                          color: Colors.orange,
                                         ),
                                       ),
                                     ),
@@ -2756,7 +2757,7 @@ void _showThreeColumnPicker(Dispatch dispatch, MyCardState state,
       hideHeader: true,
       selecteds: select,
       title: const Text("Please Select"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },
@@ -2836,7 +2837,7 @@ void _showTwoColumnPicker(Dispatch dispatch, MyCardState state,
       hideHeader: true,
       selecteds: select,
       title: const Text("Please Select"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },
@@ -2922,7 +2923,7 @@ void _showOneColumnPicker(Dispatch dispatch, MyCardState state,
       hideHeader: true,
       selecteds: select,
       title: const Text("Please Select"),
-      selectedTextStyle: const TextStyle(color: Colors.blue),
+      selectedTextStyle: const TextStyle(color: Colors.orange),
       onCancel: () {
         // Navigator.pop(ctx);
       },
@@ -3188,7 +3189,7 @@ Widget _showTotalInfoView(
                 },
                 child: const Text('Detail',
                     style: TextStyle(
-                        color: Colors.blue, fontSize: 12, height: 1.2)),
+                        color: Colors.orange, fontSize: 12, height: 1.2)),
               )
             ],
           ),

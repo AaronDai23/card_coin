@@ -98,7 +98,7 @@ Widget buildView(
                               ? Icons.radio_button_on
                               : Icons.radio_button_off,
                           size: 18,
-                          color: state.isAgree ? Colors.blue : Colors.black,
+                          color: state.isAgree ? Colors.orange : Colors.black,
                         )),
                     Expanded(
                       child: Wrap(

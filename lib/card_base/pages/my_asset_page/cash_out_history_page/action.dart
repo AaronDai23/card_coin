@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fish_redux/fish_redux.dart';
 
 import 'state.dart';
@@ -10,8 +12,8 @@ enum CashOutHistoryAction {
 }
 
 class CashOutHistoryActionCreator {
-  static Action onLoadHistory() =>
-      const Action(CashOutHistoryAction.loadHistory);
+  static Action onLoadHistory({Completer<void>? completer}) =>
+      Action(CashOutHistoryAction.loadHistory, payload: completer);
 
   static Action onLoadHistorySuccess(
           List<CashOutHistoryItem> rows, int total, int page, bool hasMore) =>

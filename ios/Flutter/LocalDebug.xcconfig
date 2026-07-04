@@ -1,0 +1,5 @@
+// Local overrides for development — not generated, safe to edit.
+// Adds the device-build Flutter.framework path so SourceKit-LSP can resolve
+// "import Flutter" even when the simulator target has no Flutter.framework
+// (simulator builds are blocked by SharetraceSDK which is device-only).
+FRAMEWORK_SEARCH_PATHS = $(inherited) "$(PROJECT_DIR)/../build/ios/Debug-iphoneos"

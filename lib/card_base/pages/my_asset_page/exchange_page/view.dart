@@ -419,7 +419,7 @@ class _AmountCardState extends State<_AmountCard> {
                 onTap: widget.onAll,
                 child: const Text('ALL',
                     style: TextStyle(
-                        color: Colors.blue,
+                        color: Colors.orange,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
               ),
@@ -591,7 +591,7 @@ class _PreviewCard extends StatelessWidget {
                   value: receiveAmount.isNotEmpty
                       ? '$toCode $receiveAmount'
                       : '--',
-                  valueColor: Colors.blue,
+                  valueColor: Colors.orange,
                   valueBold: true,
                 ),
               ],

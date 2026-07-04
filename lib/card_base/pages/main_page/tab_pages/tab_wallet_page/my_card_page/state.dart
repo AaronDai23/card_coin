@@ -72,6 +72,7 @@ class MyCardState extends LoadPageState<MyCardState> {
   bool isNeedSyncUid = false;
   int homeSeconds = 60;
   String? taskItemId;
+  String? ndefAAR;
   bool hasReportedPrimaryContentVisible = false;
 
   @override
@@ -130,6 +131,7 @@ class MyCardState extends LoadPageState<MyCardState> {
       ..sumBalanceInfo = sumBalanceInfo
       ..taskItemId = taskItemId
       ..hasReportedPrimaryContentVisible = hasReportedPrimaryContentVisible
+      ..ndefAAR = ndefAAR
       ..loadStatus = loadStatus;
   }
 }

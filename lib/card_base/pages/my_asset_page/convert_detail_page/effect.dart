@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -19,22 +21,32 @@ void _onInit(Action action, Context<ConvertDetailState> ctx) {
 
 Future<void> _onLoadDetail(
     Action action, Context<ConvertDetailState> ctx) async {
+  final completer = action.payload is Completer<void>
+      ? action.payload as Completer<void>
+      : null;
+
   ctx.dispatch(ConvertDetailActionCreator.onUpdateLoading(true));
 
-  final result = await HttpManager.getInstance().get(
-    NetworkAddress.assetExchangeDetail,
-    queryParameters: {
-      'uid': ctx.state.uid,
-      'exchangeOrderId': ctx.state.exchangeOrderId,
-    },
-  );
+  try {
+    final result = await HttpManager.getInstance().get(
+      NetworkAddress.assetExchangeDetail,
+      queryParameters: {
+        'uid': ctx.state.uid,
+        'exchangeOrderId': ctx.state.exchangeOrderId,
+      },
+    );
 
-  if (result.isSuccess && result.data is Map) {
-    final detail = ConvertDetailInfo.fromJson(
-        result.data as Map<String, dynamic>);
-    ctx.dispatch(ConvertDetailActionCreator.onLoadDetailSuccess(detail));
-  } else {
-    ctx.dispatch(ConvertDetailActionCreator.onUpdateLoading(false));
-    showToast(result.message);
+    if (result.isSuccess && result.data is Map) {
+      final detail =
+          ConvertDetailInfo.fromJson(result.data as Map<String, dynamic>);
+      ctx.dispatch(ConvertDetailActionCreator.onLoadDetailSuccess(detail));
+    } else {
+      ctx.dispatch(ConvertDetailActionCreator.onUpdateLoading(false));
+      showToast(result.message);
+    }
+  } finally {
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
   }
 }

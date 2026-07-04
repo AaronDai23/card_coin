@@ -66,7 +66,7 @@ android {
         minSdkVersion 24
         targetSdkVersion 35
 
-        versionCode 287
+        versionCode 292
         versionName '2.1.9'
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
@@ -89,14 +89,14 @@ android {
 
         card_coin_pro {
             dimension "app"
-            versionCode 58
-            applicationId "com.cardcoin.card_coin_pro"
+            versionCode 292
+            applicationId "com.cardcoin.bestwish"
 
         }
 
         card_coin_google {
             dimension "app"
-            applicationId "com.cardcoin.bestwish"
+            applicationId "com.cardcoin.lite"
 
         }
 

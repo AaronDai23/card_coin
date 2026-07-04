@@ -157,9 +157,14 @@ Widget buildView(
                                         'uid': state.cardInfo.cardDetail!.uid
                                       });
                                 },
-                                child: const Text('Detail',
+                                child: Text('Detail',
                                     style: TextStyle(
-                                        color: Colors.blue,
+                                        color: AppConfig.of(navigatorKey
+                                                        .currentContext!)
+                                                    .appInternalId ==
+                                                AppType.bestWish
+                                            ? Colors.blue
+                                            : Colors.orange,
                                         fontSize: 12,
                                         height: 1.2)),
                               )

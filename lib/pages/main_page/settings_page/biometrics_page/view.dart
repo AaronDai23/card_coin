@@ -37,12 +37,12 @@ Widget buildView(
                     width: 140,
                     height: 140,
                     decoration: BoxDecoration(
-                      color: Colors.blue[100],
+                      color: Colors.orange[100],
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.face_retouching_natural,
-                      color: Colors.blue,
+                      color: Colors.orange,
                       size: 90,
                     ),
                   ),

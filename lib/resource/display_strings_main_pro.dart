@@ -6,7 +6,7 @@ class StringResourceMainPro implements StringResource {
   String baseUrl = 'https://api.dropromo.com';
 
   @override
-  String marketCode = '';
+  String marketCode = 'GOOGLE';
 
   @override
   String signature = 'smart_card_pro';

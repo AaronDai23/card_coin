@@ -18,6 +18,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 // 1️⃣ 定义事件类
 class ReloadMainDataEvent {}
 
+class RefreshMyAssetEvent {}
+
 // 2️⃣ 创建全局 EventBus
 final eventBus = EventBus();
 

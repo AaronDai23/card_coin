@@ -1,4 +1,5 @@
 import 'package:card_coin/card_base/widgets/gradient_theme.dart';
+import 'package:card_coin/widget/app_config.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
 import 'package:marquee/marquee.dart';
@@ -63,7 +64,11 @@ Widget buildView(
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.red,
-                            backgroundColor: Colors.yellow[200]),
+                            backgroundColor: AppConfig.of(viewService.context)
+                                        .appInternalId !=
+                                    AppType.bestWish
+                                ? const Color(0xFFBBDEFB) // light blue
+                                : Colors.yellow[200]),
                         scrollAxis: Axis.horizontal,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         blankSpace: 20.0,
@@ -211,7 +216,7 @@ Widget buildView(
                                 },
                                 child: const Text('Detail',
                                     style: TextStyle(
-                                        color: Colors.blue,
+                                        color: Colors.orange,
                                         fontSize: 12,
                                         height: 1.2)),
                               )

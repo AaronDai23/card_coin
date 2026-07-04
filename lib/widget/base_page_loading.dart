@@ -366,7 +366,7 @@ class LoadErrorView extends StatelessWidget {
 //             actions: [
 //               ElevatedButton(
 //                 style: ElevatedButton.styleFrom(
-//                   foregroundColor: Colors.blue,
+//                   foregroundColor: Colors.orange,
 //                   // shape: RoundedRectangleBorder(
 //                   //   borderRadius: BorderRadius.circular(8),
 //                   // ),

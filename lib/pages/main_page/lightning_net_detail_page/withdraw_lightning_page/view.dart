@@ -77,7 +77,7 @@ Widget buildView(
                                     value));
                           },
                           maxLines: null,
-                          style: const TextStyle(color: Colors.blue),
+                          style: const TextStyle(color: Colors.orange),
                           keyboardType: TextInputType.number,
 
                           ///焦点获取
@@ -90,12 +90,12 @@ Widget buildView(
                             ),
 
                             labelText: "Enter amount",
-                            labelStyle: const TextStyle(color: Colors.blue),
+                            labelStyle: const TextStyle(color: Colors.orange),
                             errorText: state.errorTip,
                             counterText: state.mount.isEmpty
                                 ? ""
                                 : "≈ \$ ${state.mount}",
-                            counterStyle: const TextStyle(color: Colors.blue),
+                            counterStyle: const TextStyle(color: Colors.orange),
 
                             suffixIcon: DropdownButton<UnitInfo>(
                               value: state.selectedUnit,
@@ -120,7 +120,7 @@ Widget buildView(
                               }).toList(),
                             ),
                             border: const OutlineInputBorder(
-                              borderSide: BorderSide(color: Colors.blue),
+                              borderSide: BorderSide(color: Colors.orange),
                             ),
 
                             //设置输入框可编辑时的边框样式

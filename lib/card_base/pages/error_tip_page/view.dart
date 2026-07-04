@@ -8,7 +8,7 @@ Widget buildView(
   return Scaffold(
     appBar: AppBar(
       title: const Text('Error  Tip'),
-      backgroundColor: const Color.fromARGB(255, 49, 165, 255),
+      backgroundColor: const Color(0xFFF58A1F),
       foregroundColor: Colors.white,
     ),
     body: Center(
@@ -21,7 +21,7 @@ Widget buildView(
             const Icon(
               Icons.error_outline,
               size: 80,
-              color: Color.fromARGB(255, 49, 165, 255),
+              color: Color(0xFFF58A1F),
             ),
             const SizedBox(height: 20),
             // 错误信息
@@ -61,7 +61,7 @@ Widget buildView(
                 //     );
                 //   },
                 //   style: ElevatedButton.styleFrom(
-                //     backgroundColor: const Color.fromARGB(255, 49, 165, 255),
+                //     backgroundColor: const Color(0xFFF58A1F),
                 //   ),
                 //   child: const Text('Home'),
                 // ),

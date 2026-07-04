@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:card_coin/card_base/bean/asset_summary_info.dart';
 import 'package:card_coin/custom_widget/load_image.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -11,6 +13,9 @@ import 'state.dart';
 Widget buildView(
     MyAssetState state, Dispatch dispatch, ViewService viewService) {
   final allAssets = state.assetSummaryInfo?.assetListData ?? [];
+  final showInvestmentButton = state.showInvestmentDetailButton;
+  final showWalletButton = state.showWalletButton;
+  final hasBottomButtons = showInvestmentButton || showWalletButton;
   final filtered = state.selectedType == 'ALL'
       ? allAssets
       : allAssets.where((e) => e.assetType == state.selectedType).toList();
@@ -121,209 +126,222 @@ Widget buildView(
 
                   /// 资产列表
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      itemCount: filtered.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index < filtered.length) {
-                          final tooltipController = SuperTooltipController();
-                          final item = filtered[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: const BorderSide(color: Colors.black12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 6,
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(children: [
-                                              LoadImage(
-                                                item.imageUrl ?? '',
-                                                width: 20,
-                                                height: 20,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                        item.assetTypeName ??
-                                                            "",
-                                                        overflow:
-                                                            TextOverflow
-                                                                .ellipsis,
-                                                        maxLines: 1,
-                                                        style: const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            fontSize: 16)),
-                                                    Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        ConstrainedBox(
-                                                          constraints:
-                                                              const BoxConstraints(
-                                                            maxWidth:
-                                                                120, // 👈 这里设置最大宽度
-                                                          ),
-                                                          child: Text(
-                                                            item.name ?? "",
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                                    fontSize:
-                                                                        18,
-                                                                    color: Colors
-                                                                        .black),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 4),
-                                                        SuperTooltip(
-                                                          controller:
-                                                              tooltipController,
-                                                          content: Text(
-                                                            item.description ??
-                                                                "",
-                                                            softWrap: true,
-                                                            style:
-                                                                const TextStyle(
-                                                                    color: Colors
-                                                                        .grey),
-                                                          ),
-                                                          child:
-                                                              GestureDetector(
-                                                            onTap: () async {
-                                                              await tooltipController
-                                                                  .showTooltip();
-                                                            },
-                                                            child: const Icon(
-                                                              Icons.info,
-                                                              size: 15,
-                                                              color:
-                                                                  Colors.blue,
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        final completer = Completer<void>();
+                        dispatch(MyAssetActionCreator.onLoadData(
+                            completer: completer));
+                        await completer.future;
+                      },
+                      child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding:
+                            EdgeInsets.only(bottom: hasBottomButtons ? 20 : 8),
+                        itemCount: filtered.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index < filtered.length) {
+                            final tooltipController = SuperTooltipController();
+                            final item = filtered[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: const BorderSide(color: Colors.black12),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 6,
+                                        child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(children: [
+                                                LoadImage(
+                                                  item.imageUrl ?? '',
+                                                  width: 20,
+                                                  height: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                          item.assetTypeName ??
+                                                              "",
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          maxLines: 1,
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  fontSize:
+                                                                      16)),
+                                                      Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          ConstrainedBox(
+                                                            constraints:
+                                                                const BoxConstraints(
+                                                              maxWidth:
+                                                                  120, // 👈 这里设置最大宽度
+                                                            ),
+                                                            child: Text(
+                                                              item.name ?? "",
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: const TextStyle(
+                                                                  fontSize: 18,
+                                                                  color: Colors
+                                                                      .black),
                                                             ),
                                                           ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    const Text("",
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        maxLines: 1,
-                                                        style: TextStyle(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w600))
-                                                  ],
-                                                ),
-                                              )
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          SuperTooltip(
+                                                            controller:
+                                                                tooltipController,
+                                                            content: Text(
+                                                              item.description ??
+                                                                  "",
+                                                              softWrap: true,
+                                                              style: const TextStyle(
+                                                                  color: Colors
+                                                                      .grey),
+                                                            ),
+                                                            child:
+                                                                GestureDetector(
+                                                              onTap: () async {
+                                                                await tooltipController
+                                                                    .showTooltip();
+                                                              },
+                                                              child: const Icon(
+                                                                Icons.info,
+                                                                size: 15,
+                                                                color: Colors
+                                                                    .orange,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const Text("",
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          maxLines: 1,
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600))
+                                                    ],
+                                                  ),
+                                                )
+                                              ]),
                                             ]),
-                                          ]),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          const Text("", maxLines: 1),
-                                          Text(
-                                              "${item.balance!} ${item.symbol!}",
-                                              maxLines: 1,
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w600)),
-                                          Text(item.usdDisplayAmount ?? "",
-                                              maxLines: 1,
-                                              style: const TextStyle(
-                                                  color: Colors.grey)),
-                                        ],
                                       ),
-                                    ),
-                                  ],
+                                      Expanded(
+                                        flex: 4,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            const Text("", maxLines: 1),
+                                            Text(
+                                                "${item.balance!} ${item.symbol!}",
+                                                maxLines: 1,
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                            Text(item.usdDisplayAmount ?? "",
+                                                maxLines: 1,
+                                                style: const TextStyle(
+                                                    color: Colors.grey)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        } else {
-                          // 总金额行
-                          // 最后一行显示总金额
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 0, 0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 1, horizontal: 5),
-                              child: Text(
-                                state.selectedShowPrice,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                            );
+                          } else {
+                            // 总金额行
+                            // 最后一行显示总金额
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 0, 0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 1, horizontal: 5),
+                                child: Text(
+                                  state.selectedShowPrice,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                  textAlign: TextAlign.right,
                                 ),
-                                textAlign: TextAlign.right,
                               ),
-                            ),
-                          );
-                        }
-                      },
+                            );
+                          }
+                        },
+                      ),
                     ),
                   ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-
-                  /// 底部按钮
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      SizedBox(
-                        height: 45,
-                        width: 140,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            dispatch(MyAssetActionCreator.onInvestmentPage(
-                                state.uid));
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
+                  if (hasBottomButtons) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (showInvestmentButton)
+                          SizedBox(
+                            height: 45,
+                            width: 140,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                dispatch(MyAssetActionCreator.onInvestmentPage(
+                                    state.uid));
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Invest Detail'),
+                            ),
                           ),
-                          child: const Text('Invest Detail'),
-                        ),
-                      ),
-                      SizedBox(
-                        height: 45,
-                        width: 140,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            dispatch(MyAssetActionCreator.onPushWalletPage(
-                                state.uid));
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
+                        if (showInvestmentButton && showWalletButton)
+                          const SizedBox(width: 20),
+                        if (showWalletButton)
+                          SizedBox(
+                            height: 45,
+                            width: 140,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                dispatch(MyAssetActionCreator.onPushWalletPage(
+                                    state.uid));
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Wallet'),
+                            ),
                           ),
-                          child: const Text('Wallet'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ],
               ),
             );
@@ -342,45 +360,41 @@ Widget buildView(
                           TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 24),
-
                     const SizedBox(height: 24),
-
-                    /// 底部按钮
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        SizedBox(
-                          height: 45,
-                          width: 140,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              // dispatch(
-                              //     MyAssetActionCreator.onInvestmentPage(state.uid));
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
+                    if (hasBottomButtons)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (showInvestmentButton)
+                            SizedBox(
+                              height: 45,
+                              width: 140,
+                              child: ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.black,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Invest Detail'),
+                              ),
                             ),
-                            child: const Text('Invest Detail'),
-                          ),
-                        ),
-                        SizedBox(
-                          height: 45,
-                          width: 140,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              // dispatch(
-                              //     MyAssetActionCreator.onPushWalletPage(state.uid));
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
+                          if (showInvestmentButton && showWalletButton)
+                            const SizedBox(width: 20),
+                          if (showWalletButton)
+                            SizedBox(
+                              height: 45,
+                              width: 140,
+                              child: ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.black,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Wallet'),
+                              ),
                             ),
-                            child: const Text('Wallet'),
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ]))));
 }
 

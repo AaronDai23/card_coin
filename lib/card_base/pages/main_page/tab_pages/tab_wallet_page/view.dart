@@ -1,3 +1,4 @@
+import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 import 'package:card_swiper/card_swiper.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
@@ -43,10 +44,10 @@ Widget buildView(
                 child: Stack(children: [
                   // 背景图片
                   Container(
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       image: DecorationImage(
                         image: AssetImage(
-                            'assets/images/tap_banner_bg2.png'), // 本地背景图片
+                            AppThemeConfig.bannerBackgroundAsset), // 本地背景图片
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -152,10 +153,10 @@ Widget buildView(
                   child: Stack(children: [
                     // 背景图片
                     Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         image: DecorationImage(
                           image: AssetImage(
-                              'assets/images/tap_banner_bg2.png'), // 本地背景图片
+                              AppThemeConfig.bannerBackgroundAsset), // 本地背景图片
                           fit: BoxFit.cover,
                         ),
                       ),

@@ -65,7 +65,7 @@ Widget buildView(
                         //       RegExp(r'^(0|[1-9]\d*)(\.\d+)?$')),
                         // ],
                         maxLines: null,
-                        style: const TextStyle(color: Colors.blue),
+                        style: const TextStyle(color: Colors.orange),
 
                         ///焦点获取
                         focusNode: state.focusNode2,
@@ -84,7 +84,7 @@ Widget buildView(
 
                           ///输入框内的提示 输入框没有获取焦点时显示
                           labelText: "Amount",
-                          labelStyle: const TextStyle(color: Colors.blue),
+                          labelStyle: const TextStyle(color: Colors.orange),
 
                           ///显示在输入框下面的文字
                           // helperText: "这里是帮助提示语",
@@ -106,7 +106,7 @@ Widget buildView(
                           ///文字计数器默认使用
                           counterText:
                               state.mount.isEmpty ? "" : "≈ \$ ${state.mount}",
-                          counterStyle: const TextStyle(color: Colors.blue),
+                          counterStyle: const TextStyle(color: Colors.orange),
 
                           ///输入文字前的小图标
                           // prefixIcon: Icon(Icons.phone),
@@ -148,7 +148,7 @@ Widget buildView(
                           /// OutlineInputBorder
 
                           border: const OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.blue),
+                            borderSide: BorderSide(color: Colors.orange),
                           ),
 
                           //设置输入框可编辑时的边框样式

@@ -15,7 +15,7 @@ class DiagnosticStatusView extends StatelessWidget {
           width: 18.0,
           height: 18.0,
           child: CircularProgressIndicator(
-            color: Colors.blue,
+            color: Colors.orange,
             strokeWidth: 3.0,
           ));
     } else if (state == ResultState.pass) {
@@ -59,7 +59,7 @@ class DiagnosticStatusAnimation extends StatelessWidget {
         resultState == ResultState.normal) {
       lineColor = const Color(0x699D9D9D);
     } else if (resultState == ResultState.pass) {
-      lineColor = Colors.blue;
+      lineColor = Colors.orange;
     } else {
       lineColor = Colors.red;
     }
@@ -158,7 +158,7 @@ class SlideAnimatedLineState extends State<SlideAnimatedLine>
       position: animationSlideUp,
       child: Container(
         decoration: BoxDecoration(
-            color: Colors.blue, borderRadius: BorderRadius.circular(1.5)),
+            color: Colors.orange, borderRadius: BorderRadius.circular(1.5)),
         width: widget.lineWidth,
         height: widget.lineHeight,
       ),

@@ -30,7 +30,7 @@ class StyleConstants {
 
   static const Color titleTextColor = Color(0xFFFFFFFF);
 
-  static const Color successColor = Colors.blue;
+  static const Color successColor = Colors.orange;
   static const Color errorColor = Color(0xFFF25A67);
 
   // Linear

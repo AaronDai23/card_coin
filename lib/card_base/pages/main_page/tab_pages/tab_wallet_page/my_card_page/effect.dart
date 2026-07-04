@@ -104,6 +104,7 @@ Future<String?> _loadDomain(Context<MyCardState> ctx) async {
   // return "";
   if (result.isSuccess) {
     ctx.state.isNeedSyncUid = result.data['isNeedSyncUid'] ?? false;
+    ctx.state.ndefAAR = result.data['ndefAAR'] ?? "";
     return result.data['ndefDomain'] ?? "";
   }
 
@@ -149,6 +150,7 @@ Future<void> _onLoadCardInfo(Action action, Context<MyCardState> ctx) async {
       SmartCardDetail cardDetail = SmartCardDetail.fromJson(result.data);
       print(
           "[MyCard] investment.status=${cardDetail.investment?.status}, isShowPostCardActivation will be set by config");
+      await _cachePageFieldConfig(cardDetail, cardId: cardId);
       _onCheckPageConfig(action, ctx, cardDetail);
 
       // Tab 钱包页最外层 Container 背景：扫卡成功后统一为浅蓝（见 tab_wallet_page view）
@@ -277,6 +279,34 @@ Future<void> _onLoadCardInfo(Action action, Context<MyCardState> ctx) async {
     });
     ctx.dispatch(MyCardActionCreator.onLoadFailure(result.message));
     return;
+  }
+}
+
+Future<void> _cachePageFieldConfig(SmartCardDetail detail,
+    {String? cardId}) async {
+  final uid = detail.uid;
+  final list = detail.pageFieldConfig;
+  if (list == null || list.isEmpty) {
+    return;
+  }
+  final payload = list.map((e) => e.toJson()).toList();
+  final content = jsonEncode(payload);
+
+  final keySet = <String>{
+    if (cardId != null && cardId.isNotEmpty) cardId,
+    if (uid != null && uid.isNotEmpty) uid,
+  };
+  final latestUid = await LocalStorage.getCardUuid();
+  if (latestUid != null && latestUid.isNotEmpty) {
+    keySet.add(latestUid);
+  }
+
+  for (final keyUid in keySet) {
+    final cacheKey = LocalStorage.pageFieldConfig + keyUid;
+    final ok = await LocalStorage.saveString(cacheKey, content);
+    final verify = await LocalStorage.getString(cacheKey);
+    print(
+        '[PageFieldConfigCache] save key=$cacheKey, ok=$ok, verifyLen=${verify?.length ?? 0}');
   }
 }
 
@@ -649,10 +679,10 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   String? cardUuid = await LocalStorage.getCardUuid();
   print("_onScanCardClick-cardUuid:$cardUuid");
   final chipResp = await chip_scan.ScanUtil.scanOnly(
-    checkLock: true,
-    needSyncUid: true,
-    ndefLink: ctx.state.domainUrl,
-  );
+      checkLock: true,
+      needSyncUid: true,
+      ndefLink: ctx.state.domainUrl,
+      ndefAar: ctx.state.ndefAAR);
   final scanResponse = ScanResponse(
     chipResp.isSuccess,
     isActivated: chipResp.data?.isActivated,
@@ -988,6 +1018,7 @@ Future<void> _onCardActivedSuc(Action action, Context<MyCardState> ctx) async {
         return;
       }
       print("cardDetailUrl_onLoadSuccess:$cardId");
+      await _cachePageFieldConfig(cardDetail, cardId: cardId);
       LocalStorage.saveCardUuid(cardId);
       LocalStorage.saveCardNo(cardId, cardDetail.cardNo!);
       ctx.dispatch(MyCardActionCreator.onLoadSuccess(cardDetail: cardDetail));

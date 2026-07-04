@@ -1,4 +1,6 @@
 import 'package:card_coin/bean/card_info_bean.dart';
+import 'package:card_coin/card_base/widgets/gradient_theme.dart';
+import 'package:card_coin/widget/app_config.dart';
 import 'package:flutter/material.dart';
 
 import '../custom_widget/load_image.dart';
@@ -42,7 +44,7 @@ class _DeviceInfoCardState extends State<DeviceInfoCard> {
     }
     return Card(
       margin: widget.margin,
-      color: Colors.blueAccent,
+      color: AppThemeConfig.appBarBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -58,8 +60,10 @@ class _DeviceInfoCardState extends State<DeviceInfoCard> {
                   width: 50,
                   height: 50,
                 ),
-                const LoadAssetImage(
-                  '2/app_logo',
+                LoadAssetImage(
+                  AppConfig.of(context).appInternalId == AppType.bestWish
+                      ? '1/app_logo'
+                      : '2/app_logo',
                   width: 50,
                   height: 50,
                 ),

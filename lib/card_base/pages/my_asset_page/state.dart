@@ -1,4 +1,5 @@
 import 'package:card_coin/bean/card_info_bean.dart';
+import 'package:card_coin/bean/page_field_config.dart';
 import 'package:card_coin/card_base/bean/asset_summary_info.dart';
 import 'package:card_coin/widget/base_page_loading.dart';
 import 'package:super_tooltip/super_tooltip.dart';
@@ -11,6 +12,9 @@ class MyAssetState extends LoadPageState<MyAssetState> {
   List<AssetTypeData>? selectedTypes = []; // 类别数据
   String tooltip = "";
   String selectedShowPrice = '0.0'; // 记录选中类别
+  bool showInvestmentDetailButton = false;
+  bool showWalletButton = false;
+  List<PageFieldConfig> pageFieldConfigs = [];
 
   SuperTooltipController controller = SuperTooltipController();
   @override
@@ -27,6 +31,9 @@ class MyAssetState extends LoadPageState<MyAssetState> {
       ..controller = controller
       ..tooltip = tooltip
       ..selectedShowPrice = selectedShowPrice
+      ..showInvestmentDetailButton = showInvestmentDetailButton
+      ..showWalletButton = showWalletButton
+      ..pageFieldConfigs = pageFieldConfigs
       ..loadStatus = loadStatus;
   }
 }
