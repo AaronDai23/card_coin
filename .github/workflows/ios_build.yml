@@ -292,10 +292,112 @@ jobs:
             echo "IOS_CLIP_PROFILE_UUID=" >> "$GITHUB_ENV"
           fi
 
-      # ── 6a. 配置 Xcode 项目 Manual 签名（Runner + Clip Release 配置） ──────────
-      # 通过 xcodeproj gem（CocoaPods 已安装）将两个 target 的 Release 配置切换为
-      # Manual 签名，并显式绑定 PROVISIONING_PROFILE_SPECIFIER，
-      # 避免 xcodebuild 在 Manual 模式下因 specifier 为空而选错 profile。
+      # ── 7. 配置 App Store Connect API Key ────────────────────────────────────
+      - name: Setup App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        run: |
+          decode_base64() {
+            if base64 --help 2>&1 | grep -q -- '--decode'; then
+              base64 --decode
+            else
+              base64 -D
+            fi
+          }
+
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys
+          mkdir -p "$ASC_KEY_PATH"
+          echo -n "$ASC_KEY_BASE64" | decode_base64 \
+            > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
+
+      # ── 7a. 通过 ASC API 下载 Clip Distribution Provisioning Profile ──────────
+      # 若 IOS_CLIP_PROVISIONING_PROFILE_BASE64 已配置（步骤 6 已导入），跳过。
+      # 否则使用现有 ASC API Key + Python3 标准库向 Apple 查询并下载
+      # com.cardbase.app.Clip 的 IOS_APP_STORE Distribution Profile，
+      # 无需额外 secret，零依赖（仅用 openssl + urllib）。
+      - name: Download Clip provisioning profile via ASC API
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          if [[ -n "${IOS_CLIP_PROFILE_UUID:-}" ]]; then
+            echo "Clip profile already installed (UUID: $IOS_CLIP_PROFILE_UUID), skipping download"
+            exit 0
+          fi
+
+          PY_SCRIPT="$RUNNER_TEMP/download_clip_profile.py"
+          {
+            echo "import os, subprocess, base64, json, time, urllib.request, sys, shutil"
+            echo "key_id     = os.environ['ASC_KEY_ID']"
+            echo "issuer_id  = os.environ['ASC_ISSUER_ID']"
+            echo "key_path   = os.path.expanduser(f'~/.appstoreconnect/private_keys/AuthKey_{key_id}.p8')"
+            echo "runner_tmp = os.environ['RUNNER_TEMP']"
+            echo "gh_env     = os.environ['GITHUB_ENV']"
+            echo "pp_dir     = os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles')"
+            echo "os.makedirs(pp_dir, exist_ok=True)"
+            echo ""
+            echo "def make_jwt():"
+            echo "    hdr = base64.urlsafe_b64encode(json.dumps({'alg':'ES256','kid':key_id,'typ':'JWT'}).encode()).rstrip(b'=').decode()"
+            echo "    now = int(time.time())"
+            echo "    pld = base64.urlsafe_b64encode(json.dumps({'iss':issuer_id,'iat':now,'exp':now+1200,'aud':'appstoreconnect-v1'}).encode()).rstrip(b'=').decode()"
+            echo "    msg = hdr + '.' + pld"
+            echo "    r = subprocess.run(['openssl','dgst','-sha256','-sign',key_path], input=msg.encode(), capture_output=True)"
+            echo "    if r.returncode != 0: raise RuntimeError(r.stderr.decode())"
+            echo "    d = r.stdout"
+            echo "    p = 2 if d[1] < 128 else 2 + (d[1] & 0x7f)"
+            echo "    rl = d[p+1]; rb = d[p+2:p+2+rl].lstrip(b'\\x00').rjust(32, b'\\x00')"
+            echo "    sp = p+2+rl; sl = d[sp+1]; sb = d[sp+2:sp+2+sl].lstrip(b'\\x00').rjust(32, b'\\x00')"
+            echo "    return msg + '.' + base64.urlsafe_b64encode(rb+sb).rstrip(b'=').decode()"
+            echo ""
+            echo "jwt = make_jwt()"
+            echo "url = ('https://api.appstoreconnect.apple.com/v1/profiles'"
+            echo "       '?filter[bundleId.identifier]=com.cardbase.app.Clip'"
+            echo "       '&filter[profileType]=IOS_APP_STORE'"
+            echo "       '&filter[profileState]=ACTIVE&limit=1')"
+            echo "req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + jwt})"
+            echo "try:"
+            echo "    with urllib.request.urlopen(req, timeout=30) as resp:"
+            echo "        data = json.loads(resp.read())"
+            echo "except Exception as e:"
+            echo "    print('::error::ASC API call failed: ' + str(e)); sys.exit(1)"
+            echo ""
+            echo "profiles = data.get('data', [])"
+            echo "if not profiles:"
+            echo "    print('::error::No IOS_APP_STORE Distribution profile found for com.cardbase.app.Clip')"
+            echo "    print('::error::Create one at https://developer.apple.com/account/resources/profiles/add')"
+            echo "    print('::error::Or add IOS_CLIP_PROVISIONING_PROFILE_BASE64 secret to skip this step')"
+            echo "    sys.exit(1)"
+            echo ""
+            echo "attrs   = profiles[0]['attributes']"
+            echo "content = attrs.get('profileContent', '')"
+            echo "uuid    = attrs.get('uuid', '')"
+            echo "if not content or not uuid:"
+            echo "    print('::error::Profile content/UUID missing in ASC response'); sys.exit(1)"
+            echo ""
+            echo "dst = os.path.join(pp_dir, uuid + '.mobileprovision')"
+            echo "with open(dst, 'wb') as f: f.write(base64.b64decode(content))"
+            echo "print('Clip Distribution profile installed. UUID: ' + uuid)"
+            echo ""
+            echo "with open(gh_env, 'a') as f:"
+            echo "    f.write('IOS_CLIP_PROFILE_UUID=' + uuid + '\\n')"
+          } > "$PY_SCRIPT"
+          python3 "$PY_SCRIPT"
+
+          # 将 Clip UUID 写入 ExportOptions.plist
+          if [[ -n "${IOS_CLIP_PROFILE_UUID:-}" ]]; then
+            /usr/libexec/PlistBuddy \
+              -c "Add :provisioningProfiles:com.cardbase.app.Clip string $IOS_CLIP_PROFILE_UUID" \
+              ios/ExportOptions.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy \
+              -c "Set :provisioningProfiles:com.cardbase.app.Clip $IOS_CLIP_PROFILE_UUID" \
+              ios/ExportOptions.plist
+            echo "ExportOptions.plist updated with Clip UUID: $IOS_CLIP_PROFILE_UUID"
+          fi
+
+      # ── 7b. 配置 Xcode 项目 Manual 签名（Runner + Clip Release 配置） ──────────
+      # 必须在 Clip profile 下载完成（步骤 7a）之后运行，
+      # 此时 IOS_CLIP_PROFILE_UUID 已有值，可为 Clip target 设置正确的 specifier。
       - name: Configure Xcode code signing
         run: |
           SIGN_SCRIPT="$RUNNER_TEMP/configure_signing.rb"
@@ -320,25 +422,6 @@ jobs:
             echo "profile_map.each { |t, p| puts \"  #{t}: #{p.empty? ? '(auto via ASC)' : p}\" }"
           } > "$SIGN_SCRIPT"
           ruby "$SIGN_SCRIPT"
-
-      # ── 7. 配置 App Store Connect API Key（用于上传，可保留） ─────────────────
-      - name: Setup App Store Connect API key
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
-        run: |
-          decode_base64() {
-            if base64 --help 2>&1 | grep -q -- '--decode'; then
-              base64 --decode
-            else
-              base64 -D
-            fi
-          }
-
-          ASC_KEY_PATH=~/.appstoreconnect/private_keys
-          mkdir -p "$ASC_KEY_PATH"
-          echo -n "$ASC_KEY_BASE64" | decode_base64 \
-            > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
 
       # ── 8. 更新 ExportOptions.plist 打包方式和签名方式 ──────────────────────────
       - name: Set export method
