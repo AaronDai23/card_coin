@@ -213,6 +213,7 @@ jobs:
       - name: Import provisioning profile
         env:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          CLIP_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_CLIP_PROVISIONING_PROFILE_BASE64 }}
         run: |
           decode_base64() {
             if base64 --help 2>&1 | grep -q -- '--decode'; then
@@ -265,6 +266,61 @@ jobs:
             ios/ExportOptions.plist
           echo "ExportOptions.plist updated with UUID: $PROFILE_UUID"
 
+          # ── 可选：导入 App Clip 的 Distribution Provisioning Profile ────────────
+          # 若未配置 IOS_CLIP_PROVISIONING_PROFILE_BASE64，Clip profile 将由
+          # -allowProvisioningUpdates + ASC API Key 在 archive 阶段自动从 Apple 下载。
+          if [[ -n "${CLIP_PROVISIONING_PROFILE_BASE64:-}" ]]; then
+            CLIP_PROFILE_PATH="$RUNNER_TEMP/clip.mobileprovision"
+            echo -n "$CLIP_PROVISIONING_PROFILE_BASE64" | decode_base64 > "$CLIP_PROFILE_PATH"
+
+            security cms -D -i "$CLIP_PROFILE_PATH" -o "$RUNNER_TEMP/clip_profile_decoded.plist"
+            CLIP_PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/clip_profile_decoded.plist")
+            echo "Clip Profile UUID: $CLIP_PROFILE_UUID"
+            echo "IOS_CLIP_PROFILE_UUID=$CLIP_PROFILE_UUID" >> "$GITHUB_ENV"
+
+            cp "$CLIP_PROFILE_PATH" "$PP_DIR/$CLIP_PROFILE_UUID.mobileprovision"
+
+            /usr/libexec/PlistBuddy \
+              -c "Add :provisioningProfiles:com.cardbase.app.Clip string $CLIP_PROFILE_UUID" \
+              ios/ExportOptions.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy \
+              -c "Set :provisioningProfiles:com.cardbase.app.Clip $CLIP_PROFILE_UUID" \
+              ios/ExportOptions.plist
+            echo "ExportOptions.plist updated with Clip UUID: $CLIP_PROFILE_UUID"
+          else
+            echo "::notice::IOS_CLIP_PROVISIONING_PROFILE_BASE64 未配置；Clip Distribution Profile 将由 -allowProvisioningUpdates 在 archive 时从 Apple Developer Portal 自动下载"
+            echo "IOS_CLIP_PROFILE_UUID=" >> "$GITHUB_ENV"
+          fi
+
+      # ── 6a. 配置 Xcode 项目 Manual 签名（Runner + Clip Release 配置） ──────────
+      # 通过 xcodeproj gem（CocoaPods 已安装）将两个 target 的 Release 配置切换为
+      # Manual 签名，并显式绑定 PROVISIONING_PROFILE_SPECIFIER，
+      # 避免 xcodebuild 在 Manual 模式下因 specifier 为空而选错 profile。
+      - name: Configure Xcode code signing
+        run: |
+          SIGN_SCRIPT="$RUNNER_TEMP/configure_signing.rb"
+          {
+            echo "require 'xcodeproj'"
+            echo "project = Xcodeproj::Project.open('ios/Runner.xcodeproj')"
+            echo "runner_profile = ENV.fetch('IOS_PROFILE_UUID', '')"
+            echo "clip_profile   = ENV.fetch('IOS_CLIP_PROFILE_UUID', '')"
+            echo "profile_map = { 'Runner' => runner_profile, 'Clip' => clip_profile }"
+            echo "project.targets.each do |target|"
+            echo "  spec = profile_map.fetch(target.name, '')"
+            echo "  target.build_configurations.each do |config|"
+            echo "    next unless config.name == 'Release'"
+            echo "    config.build_settings['CODE_SIGN_STYLE']                = 'Manual'"
+            echo "    config.build_settings['CODE_SIGN_IDENTITY']             = 'Apple Distribution'"
+            echo "    config.build_settings['DEVELOPMENT_TEAM']               = 'G76B76R439'"
+            echo "    config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = spec"
+            echo "  end"
+            echo "end"
+            echo "project.save"
+            echo "puts 'Release code signing configured:'"
+            echo "profile_map.each { |t, p| puts \"  #{t}: #{p.empty? ? '(auto via ASC)' : p}\" }"
+          } > "$SIGN_SCRIPT"
+          ruby "$SIGN_SCRIPT"
+
       # ── 7. 配置 App Store Connect API Key（用于上传，可保留） ─────────────────
       - name: Setup App Store Connect API key
         env:
@@ -284,12 +340,22 @@ jobs:
           echo -n "$ASC_KEY_BASE64" | decode_base64 \
             > "$ASC_KEY_PATH/AuthKey_${ASC_KEY_ID}.p8"
 
-      # ── 8. 更新 ExportOptions.plist 打包方式 ─────────────────────────────────
+      # ── 8. 更新 ExportOptions.plist 打包方式和签名方式 ──────────────────────────
       - name: Set export method
         run: |
           METHOD="${{ github.event.inputs.export_method || 'app-store-connect' }}"
           /usr/libexec/PlistBuddy -c "Set :method $METHOD" ios/ExportOptions.plist
           echo "Export method: $METHOD"
+
+          # 若 Clip profile 已预先安装（IOS_CLIP_PROFILE_UUID 非空），则切换为
+          # manual signingStyle，确保 export 也使用相同的 Distribution Profile。
+          # 否则保留 automatic，由 -allowProvisioningUpdates + ASC Key 处理 Clip。
+          if [[ -n "${IOS_CLIP_PROFILE_UUID:-}" ]]; then
+            /usr/libexec/PlistBuddy -c "Set :signingStyle manual" ios/ExportOptions.plist
+            echo "Export signing style set to: manual"
+          else
+            echo "Export signing style: automatic (Clip profile via ASC)"
+          fi
 
       # ── 9. Archive ────────────────────────────────────────────────────────────
       - name: Build Xcode Archive
@@ -315,7 +381,7 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
