@@ -384,15 +384,17 @@ jobs:
           } > "$PY_SCRIPT"
           python3 "$PY_SCRIPT"
 
-          # 将 Clip UUID 写入 ExportOptions.plist
-          if [[ -n "${IOS_CLIP_PROFILE_UUID:-}" ]]; then
+          # $GITHUB_ENV 的变量只在后续步骤可见，同步骤内用 shell 变量读不到。
+          # 直接从文件读取 Python 刚刚写入的 Clip UUID。
+          CLIP_UUID=$(grep '^IOS_CLIP_PROFILE_UUID=' "$GITHUB_ENV" 2>/dev/null | tail -1 | cut -d= -f2-)
+          if [[ -n "$CLIP_UUID" ]]; then
             /usr/libexec/PlistBuddy \
-              -c "Add :provisioningProfiles:com.cardbase.app.Clip string $IOS_CLIP_PROFILE_UUID" \
+              -c "Add :provisioningProfiles:com.cardbase.app.Clip string $CLIP_UUID" \
               ios/ExportOptions.plist 2>/dev/null || \
             /usr/libexec/PlistBuddy \
-              -c "Set :provisioningProfiles:com.cardbase.app.Clip $IOS_CLIP_PROFILE_UUID" \
+              -c "Set :provisioningProfiles:com.cardbase.app.Clip $CLIP_UUID" \
               ios/ExportOptions.plist
-            echo "ExportOptions.plist updated with Clip UUID: $IOS_CLIP_PROFILE_UUID"
+            echo "ExportOptions.plist updated with Clip UUID: $CLIP_UUID"
           fi
 
       # ── 7b. 配置 Xcode 项目 Manual 签名（Runner + Clip Release 配置） ──────────
@@ -430,12 +432,18 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :method $METHOD" ios/ExportOptions.plist
           echo "Export method: $METHOD"
 
-          # 若 Clip profile 已预先安装（IOS_CLIP_PROFILE_UUID 非空），则切换为
-          # manual signingStyle，确保 export 也使用相同的 Distribution Profile。
-          # 否则保留 automatic，由 -allowProvisioningUpdates + ASC Key 处理 Clip。
+          # IOS_CLIP_PROFILE_UUID 在此步骤已可见（由步骤 7a 的 GITHUB_ENV 写入）。
+          # 同时确保 provisioningProfiles:com.cardbase.app.Clip 已写入（步骤 7a 同步骤
+          # 内可能因 GITHUB_ENV 延迟未写成功，此处补写一次）。
           if [[ -n "${IOS_CLIP_PROFILE_UUID:-}" ]]; then
             /usr/libexec/PlistBuddy -c "Set :signingStyle manual" ios/ExportOptions.plist
-            echo "Export signing style set to: manual"
+            /usr/libexec/PlistBuddy \
+              -c "Add :provisioningProfiles:com.cardbase.app.Clip string $IOS_CLIP_PROFILE_UUID" \
+              ios/ExportOptions.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy \
+              -c "Set :provisioningProfiles:com.cardbase.app.Clip $IOS_CLIP_PROFILE_UUID" \
+              ios/ExportOptions.plist
+            echo "Export signing: manual, Clip UUID = $IOS_CLIP_PROFILE_UUID"
           else
             echo "Export signing style: automatic (Clip profile via ASC)"
           fi
