@@ -105,6 +105,9 @@ class _WaveSkeletonBoxState extends State<_WaveSkeletonBox>
 Widget buildView(
     SettingsState state, Dispatch dispatch, ViewService viewService) {
   var languageResource = state.languageResource!;
+  final fromDeepLink = (ModalRoute.of(viewService.context)?.settings.arguments
+          as Map?)?['fromDeepLink'] ==
+      true;
   final String currentLanguageLabel = (state.languageList.isNotEmpty &&
           state.currentIndexLan >= 0 &&
           state.currentIndexLan < state.languageList.length)
@@ -119,10 +122,13 @@ Widget buildView(
               .primaryGradient,
         ),
       ),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.of(viewService.context).pop(),
-      ),
+      automaticallyImplyLeading: !fromDeepLink,
+      leading: fromDeepLink
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(viewService.context).pop(),
+            ),
       title: Text(languageResource.settings),
       actions: [
         TextButton(

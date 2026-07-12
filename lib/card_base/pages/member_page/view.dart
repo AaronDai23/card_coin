@@ -29,6 +29,10 @@ Widget buildView(
                   .primaryGradient,
             ),
           ),
+          automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+                  ?.settings
+                  .arguments as Map?)?['fromDeepLink'] !=
+              true,
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text(
             languageResource.userLevel,

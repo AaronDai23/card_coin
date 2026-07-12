@@ -34,7 +34,10 @@ Widget buildView(
               .primaryGradient,
         ),
       ),
-      title: const Text('ChipBase Wallet'),
+      title: Text(
+          AppConfig.of(viewService.context).appInternalId != AppType.bestWish
+              ? 'OfferVas Wallet'
+              : 'ChipBase Wallet'),
       actions: [
         IconButton(
             onPressed: () {

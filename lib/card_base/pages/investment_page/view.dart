@@ -10,6 +10,9 @@ import 'state.dart';
 
 Widget buildView(
     InvestmentState state, Dispatch dispatch, ViewService viewService) {
+  final fromDeepLink = (ModalRoute.of(viewService.context)?.settings.arguments
+          as Map?)?['fromDeepLink'] ==
+      true;
   return WillPopScope(
       onWillPop: () async {
         dispatch(InvestmentActionCreator.onActivitedNofi());
@@ -24,13 +27,16 @@ Widget buildView(
                   .primaryGradient,
             ),
           ),
+          automaticallyImplyLeading: !fromDeepLink,
           title: const Text("Investment"),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              dispatch(InvestmentActionCreator.onActivitedNofi());
-            },
-          ),
+          leading: fromDeepLink
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    dispatch(InvestmentActionCreator.onActivitedNofi());
+                  },
+                ),
           // actions: [
           //   PopupMenuButton<String>(
           //     onSelected: (String value) {

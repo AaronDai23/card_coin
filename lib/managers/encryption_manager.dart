@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:card_coin/bean/public_key_bean.dart';
+import 'package:card_coin/cache/local_storage.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/observability/otel_dio_interceptor.dart';
 import 'package:crypto/crypto.dart' as crypto;
@@ -28,6 +30,9 @@ class EncryptionManager {
   // 初始化失败重试计数，最多重试 _maxRetries 次
   int _retryCount = 0;
   static const int _maxRetries = 3;
+
+  static const String _cacheKeyPublicKey = 'enc_rsa_public_key';
+  static const String _cacheKeyEnable = 'enc_enable';
 
   /// 是否开启加密
   bool get isEnabled => _enable && _rsaPublicKey != null;
@@ -61,9 +66,74 @@ class EncryptionManager {
       print('[EncryptionManager] retrying init, attempt=$_retryCount');
     }
 
+    // 优先从本地缓存恢复（冷启动加速）
+    if (!_initialized) {
+      final cachedKey = await LocalStorage.getString(_cacheKeyPublicKey);
+      final cachedEnable = await LocalStorage.getString(_cacheKeyEnable);
+      if (cachedKey != null && cachedEnable != null) {
+        try {
+          _enable = cachedEnable == 'true';
+          if (_enable) {
+            _rsaPublicKey = _parseRsaPublicKey(cachedKey);
+          }
+          _initialized = true;
+          print(
+              '[EncryptionManager] restored from cache. isEnabled=$isEnabled');
+          // 后台静默刷新，不阻塞当前调用
+          _refreshFromServer(baseUrl, headers: headers); // fire-and-forget
+          return;
+        } catch (e) {
+          print(
+              '[EncryptionManager] cache restore failed: $e, fetching from server');
+          _initialized = false;
+          _enable = false;
+          _rsaPublicKey = null;
+        }
+      }
+    }
+
     final future = _doInitialize(baseUrl, headers: headers);
     _initializingFuture = future;
     await future;
+  }
+
+  /// 后台静默刷新公钥（缓存命中后调用，不阻塞业务）
+  Future<void> _refreshFromServer(String baseUrl,
+      {Map<String, dynamic>? headers}) async {
+    try {
+      final dio = Dio(BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ));
+      dio.interceptors.add(OtelDioInterceptor());
+      final response = await dio.get(
+        NetworkAddress.systemPublicKeyUrl,
+        options: Options(headers: headers),
+      );
+      final Map<String, dynamic> body = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data as Map<String, dynamic>;
+      final errcode = body['errcode']?.toString();
+      if (errcode == '0') {
+        final data = body['data'];
+        final bean = PublicKeyBean.fromJson(data as Map<String, dynamic>);
+        if (bean.enable) {
+          final aesKey = _extractAesKey(bean.symbol);
+          final realPublicKeyBase64 = _aesDecrypt(bean.publicKey, aesKey);
+          final newKey = _parseRsaPublicKey(realPublicKeyBase64);
+          // 更新内存与缓存
+          _rsaPublicKey = newKey;
+          _enable = true;
+          await LocalStorage.saveString(
+              _cacheKeyPublicKey, realPublicKeyBase64);
+          await LocalStorage.saveString(_cacheKeyEnable, 'true');
+          print('[EncryptionManager] background refresh OK');
+        }
+      }
+    } catch (e) {
+      print('[EncryptionManager] background refresh failed: $e');
+    }
   }
 
   Future<void> _doInitialize(String baseUrl,
@@ -108,6 +178,10 @@ class EncryptionManager {
           _rsaPublicKey = _parseRsaPublicKey(realPublicKeyBase64);
           print('[EncryptionManager] Step7 - RSA key parsed OK, '
               'modulus bits=${_rsaPublicKey!.modulus!.bitLength}');
+          // 写入本地缓存，下次冷启动直接从缓存恢复
+          LocalStorage.saveString(
+              _cacheKeyPublicKey, realPublicKeyBase64); // fire-and-forget
+          LocalStorage.saveString(_cacheKeyEnable, 'true'); // fire-and-forget
         } else {
           print(
               '[EncryptionManager] Step4 - enable=false, encryption disabled');
@@ -132,6 +206,8 @@ class EncryptionManager {
     _enable = false;
     _rsaPublicKey = null;
     _initializingFuture = null;
+    LocalStorage.saveString(_cacheKeyPublicKey, ''); // fire-and-forget
+    LocalStorage.saveString(_cacheKeyEnable, 'false'); // fire-and-forget
   }
 
   // ---------------------------------------------------------------------------

@@ -47,6 +47,9 @@ String? _normalizeWebUrl(String? rawUrl) {
 
 Widget buildView(
     WebviewState state, Dispatch dispatch, ViewService viewService) {
+  final fromDeepLink = (ModalRoute.of(viewService.context)?.settings.arguments
+          as Map?)?['fromDeepLink'] ==
+      true;
   return Scaffold(
       appBar: AppBar(
           flexibleSpace: Container(
@@ -57,10 +60,14 @@ Widget buildView(
             ),
           ),
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(state.showForward ? Icons.close : Icons.arrow_back),
-            onPressed: () => Navigator.of(viewService.context).pop(),
-          ),
+          automaticallyImplyLeading: !fromDeepLink,
+          leading: fromDeepLink
+              ? null
+              : IconButton(
+                  icon:
+                      Icon(state.showForward ? Icons.close : Icons.arrow_back),
+                  onPressed: () => Navigator.of(viewService.context).pop(),
+                ),
           title: Text(state.title),
           actions: state.showForward
               ? [

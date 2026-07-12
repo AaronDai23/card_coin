@@ -207,7 +207,7 @@ Future<void> _onloadData(Action action, Context<MyAssetState> ctx) async {
 
 Future<void> _onPushWalletClick(
     Action action, Context<MyAssetState> ctx) async {
-  String cardId = action.payload;
+  String cardId = ctx.state.uid.toUpperCase();
 
   ///获取卡片信息缓存
   final cardInfoJson =
@@ -230,7 +230,7 @@ Future<void> _onPushWalletClick(
 
 Future<void> _onInvestmentClick(
     Action action, Context<MyAssetState> ctx) async {
-  String cardId = action.payload;
+  String cardId = ctx.state.uid.toUpperCase();
   print(
       '_onInvestmentClick-cardId:${ctx.state.cardDetail!.investmentConfig!.investmentFlow}');
   if (ctx.state.cardDetail != null &&

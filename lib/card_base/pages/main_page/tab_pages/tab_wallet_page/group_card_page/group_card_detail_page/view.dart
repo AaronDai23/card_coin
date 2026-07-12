@@ -23,6 +23,10 @@ Widget buildView(
               .primaryGradient,
         ),
       ),
+      automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+              ?.settings
+              .arguments as Map?)?['fromDeepLink'] !=
+          true,
       title: Text(state.cardGroup.groupName ?? ''),
     ),
     body: PageDataLoadingView(

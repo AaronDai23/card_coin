@@ -21,6 +21,10 @@ Widget buildView(
               .primaryGradient,
         ),
       ),
+      automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+              ?.settings
+              .arguments as Map?)?['fromDeepLink'] !=
+          true,
       title: Text(state.title),
     ),
     body: PageDataLoadingView(
@@ -201,16 +205,16 @@ Widget buildView(
                             children: [
                               Text(
                                 DateUtil.formatDateMs(history.createTime!),
-                                style:
-                                    const TextStyle(fontSize: 14, color: Colors.grey),
+                                style: const TextStyle(
+                                    fontSize: 14, color: Colors.grey),
                               ),
                               Text(
                                 history.currentBalance! > 0
                                     ? 'Saldo ${history.symbol!} ${history.currentBalance}'
                                     : '',
                                 textAlign: TextAlign.end,
-                                style:
-                                    const TextStyle(fontSize: 14, color: Colors.grey),
+                                style: const TextStyle(
+                                    fontSize: 14, color: Colors.grey),
                               ),
                             ],
                           )

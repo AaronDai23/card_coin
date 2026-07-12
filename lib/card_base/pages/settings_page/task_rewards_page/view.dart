@@ -11,6 +11,9 @@ import 'state.dart';
 
 Widget buildView(
     TaskRewardsState state, Dispatch dispatch, ViewService viewService) {
+  final fromDeepLink = (ModalRoute.of(viewService.context)?.settings.arguments
+          as Map?)?['fromDeepLink'] ==
+      true;
   // 提供默认值
   final int pendingCount = state.taskSummaryInfo?.pendingCount ?? 0;
   final int receivedCount = state.taskSummaryInfo?.receivedCount ?? 0;
@@ -35,12 +38,15 @@ Widget buildView(
                 .primaryGradient,
           ),
         ),
+        automaticallyImplyLeading: !fromDeepLink,
         title: const Text('Lightning Rewards'),
-        leading: IconButton(
-            onPressed: () {
-              Navigator.of(viewService.context).pop();
-            },
-            icon: const Icon(Icons.arrow_back)),
+        leading: fromDeepLink
+            ? null
+            : IconButton(
+                onPressed: () {
+                  Navigator.of(viewService.context).pop();
+                },
+                icon: const Icon(Icons.arrow_back)),
       ),
       body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Card(

@@ -2,10 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.developer.associated-appclip-app-identifiers</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.cardbase.app.Clip</string>
+	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>appclips:c.dropromo.com</string>
-		<string>applinks:c.dropromo.com</string>
 	</array>
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
@@ -14,9 +17,5 @@
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array/>
-    <key>com.apple.developer.associated-appclip-app-identifiers</key>
-    <array>
-        <string>$(AppIdentifierPrefix)com.cardbase.app.Clip</string>
-    </array>
 </dict>
 </plist>

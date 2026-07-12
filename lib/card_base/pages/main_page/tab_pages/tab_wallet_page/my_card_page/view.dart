@@ -12,6 +12,7 @@ import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 import 'package:card_coin/widget/time_update_view.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_picker/picker.dart';
 import 'package:super_tooltip/super_tooltip.dart';
@@ -1724,7 +1725,7 @@ Widget buildNewInActiveView(
                                   onTapQR: () {},
                                   totalBalance: state.sumBalanceInfo?.usd,
                                   showTotalBalance:
-                                      state.pageConfig.isShowCardTotalBalance ==
+                                      state.pageConfig.isShowTotalBalance ==
                                           true,
                                 ))
                           else
@@ -1842,8 +1843,6 @@ bool isShowVCCard(MyCardState state) {
       state.pageConfig.isShowCardMerchantName == true ||
       state.pageConfig.isShowCardShapeImage == true ||
       state.pageConfig.isShowCardShape == true ||
-      (state.pageConfig.isShowCardNo == true &&
-          state.cardDetail?.cardNo?.isNotEmpty == true) ||
       (state.pageConfig.isShowPostCardName == true &&
           state.cardDetail?.contact?.isNotEmpty == true) ||
       (state.pageConfig.isShowCardMerchantTitle == true &&
@@ -1856,7 +1855,7 @@ bool isShowVCCard(MyCardState state) {
           state.cardDetail?.address?.isNotEmpty == true) ||
       (state.pageConfig.isShowCardDescription == true &&
           state.cardDetail?.description?.isNotEmpty == true) ||
-      (state.pageConfig.isShowCardTotalBalance == true &&
+      (state.pageConfig.isShowTotalBalance == true &&
           state.sumBalanceInfo?.usd != null);
   return result;
 }
@@ -3178,22 +3177,84 @@ Widget _showTotalInfoView(
           child: Row(
             children: [
               _showSecodeUpateView(state, dispatch, viewService),
-              const SizedBox(
-                width: 10,
-              ),
-              InkWell(
-                onTap: () {
-                  Navigator.of(viewService.context).pushNamed(
-                      'lightningNetDetailPage',
-                      arguments: {'uid': state.cardDetail!.uid});
-                },
-                child: const Text('Detail',
-                    style: TextStyle(
-                        color: Colors.orange, fontSize: 12, height: 1.2)),
-              )
+              if (state.pageConfig.isShowBalanceDetail == true) ...[
+                const SizedBox(width: 10),
+                InkWell(
+                  onTap: () {
+                    Navigator.of(viewService.context).pushNamed(
+                        'lightningNetDetailPage',
+                        arguments: {'uid': state.cardDetail!.uid});
+                  },
+                  child: const Text('Detail',
+                      style: TextStyle(
+                          color: Colors.orange, fontSize: 12, height: 1.2)),
+                ),
+              ],
             ],
           ),
         ),
+        if (state.pageConfig.isShowCryptoAddress == true &&
+            state.sumBalanceInfo != null &&
+            state.sumBalanceInfo!.address.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 15, bottom: 6, right: 15),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    () {
+                      final addr = state.sumBalanceInfo!.address;
+                      if (addr.length <= 20) return addr;
+                      const half = 10;
+                      return '${addr.substring(0, half)}...${addr.substring(addr.length - half)}';
+                    }(),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(
+                        ClipboardData(text: state.sumBalanceInfo!.address));
+                    EasyLoading.showToast(
+                        state.languageResource?.copySuccess ?? 'Copied!');
+                  },
+                  child: Image.asset(
+                    'assets/images/content_copy.png',
+                    width: 16,
+                    height: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (state.pageConfig.isShowCardNo == true &&
+            state.cardDetail?.cardNo?.isNotEmpty == true)
+          Padding(
+            padding: const EdgeInsets.only(left: 15, bottom: 10, right: 15),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'SN: ${state.cardDetail!.cardNo!}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(
+                        ClipboardData(text: state.cardDetail!.cardNo!));
+                    EasyLoading.showToast(
+                        state.languageResource?.copySuccess ?? 'Copied!');
+                  },
+                  child: Image.asset(
+                    'assets/images/content_copy.png',
+                    width: 16,
+                    height: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     ),
   );

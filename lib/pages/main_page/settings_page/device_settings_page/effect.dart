@@ -20,9 +20,11 @@ Effect<DeviceSettingsState>? buildEffect() {
 }
 
 void _onInit(Action action, Context<DeviceSettingsState> ctx) async {
-  String? cardUuid = await LocalStorage.getCardUuid();
-  final cardInfoJson =
-      await LocalStorage.getString(LocalStorage.cardInfo + cardUuid!);
+  String cardUuid =
+      await LocalStorage.getCardUuid() ?? ctx.state.cardId.toUpperCase();
+
+  final cardInfoJson = await LocalStorage.getString(
+      LocalStorage.cardInfo + cardUuid.toUpperCase()!);
   if (cardInfoJson?.isNotEmpty ?? false) {
     ctx.state.cardInfo = CardInfo.fromJson(json.decode(cardInfoJson!));
     ctx.dispatch(DeviceSettingsActionCreator.onUpdateImage());

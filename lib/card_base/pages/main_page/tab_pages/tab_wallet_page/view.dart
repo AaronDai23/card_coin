@@ -55,7 +55,7 @@ Widget buildView(
 
                   Card(
                       margin: const EdgeInsets.only(
-                          top: 40, left: 10, right: 10, bottom: 30),
+                          top: 55, left: 10, right: 10, bottom: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16.0),
                       ),

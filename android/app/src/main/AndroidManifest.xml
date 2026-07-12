@@ -75,17 +75,13 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- NFC NDEF_DISCOVERED：优先级最高，拦截卡片中的 NDEF URL 记录，
-                 防止系统弹出"打开链接"对话框，也防止被 App Links 当成 deeplink 处理。 -->
+            <!-- crypto.dropromo.com 的 NDEF_DISCOVERED：仅保留 crypto host，
+                 让 app 内置的 ChipCore SDK 在前台时可拦截并处理该卡片。
+                 asset.dropromo.com 的 NFC 不由 app 处理，直接走浏览器。 -->
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:scheme="https" android:host="crypto.dropromo.com"/>
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <data android:scheme="https" android:host="asset.dropromo.com"/>
             </intent-filter>
             <!-- NFC TECH_DISCOVERED：告知 MIUI/系统该 Activity 处理 NFC，
                  防止小米等厂商在扫卡时于顶部显示系统 NFC 弹窗。
@@ -114,25 +110,27 @@
                 <data android:scheme="wcwallet" />
             </intent-filter>
 
+            <!-- st944a9eb04e40fdbc://jump 由 ShareTrace/浏览器网页调用，拉起 app -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="st944a9eb04e40fdbc" 
+                    android:scheme="st944a9eb04e40fdbc"
                     android:host="jump"/>
             </intent-filter>
-            <!-- 新增：兼容HTTPS链接唤起（ShareTrace一键调起核心） -->
-            <!-- App Links 配置 -->
-    <intent-filter android:autoVerify="true">
-        <action android:name="android.intent.action.VIEW" />
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-        <data
-            android:scheme="https"
-            android:host="asset.dropromo.com"
-            android:pathPrefix="/" />
-    </intent-filter>
+            <!-- asset.dropromo.com App Links：NFC 卡片（c.dropromo.com）被浏览器打开后，
+                 服务端重定向到此 URL，由 App Links 拉起 app 并跳转指定页面。
+                 NFC 卡片本身的 URL（c.dropromo.com）不在任何 filter 中，不会触发 app。 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="asset.dropromo.com"
+                    android:pathPrefix="/" />
+            </intent-filter>
         </activity>
         <!--
  Don't delete the meta-data below.

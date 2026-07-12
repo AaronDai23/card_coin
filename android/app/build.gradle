@@ -66,7 +66,7 @@ android {
         minSdkVersion 24
         targetSdkVersion 35
 
-        versionCode 292
+        versionCode 296
         versionName '2.1.9'
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
@@ -89,7 +89,7 @@ android {
 
         card_coin_pro {
             dimension "app"
-            versionCode 292
+            versionCode 296
             applicationId "com.cardcoin.bestwish"
 
         }
@@ -155,7 +155,7 @@ dependencies {
     implementation 'org.bitcoinj:bitcoinj-core:0.15.10'
     implementation 'com.github.dogecoin:libdohj:v0.15'
     implementation 'com.google.guava:guava:30.0-android'
-    implementation 'com.tencent.bugly:crashreport:latest.release'
+    // implementation 'com.tencent.bugly:crashreport:latest.release'  // 已移除
 
     implementation "com.madgag.spongycastle:core:1.58.0.0"
     implementation "com.madgag.spongycastle:prov:1.58.0.0"

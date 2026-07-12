@@ -71,11 +71,18 @@ void _onInit(Action action, Context<CheckCardState> ctx) async {
         name: languageResource.signature, type: HealthCheckType.signature),
     HealthCheckInfo(
         name: languageResource.pinset, type: HealthCheckType.pinSet),
-    HealthCheckInfo(name: "Export Times", type: HealthCheckType.exportTimes),
-    HealthCheckInfo(name: "Restore Times", type: HealthCheckType.restoreTimes),
-    HealthCheckInfo(name: "Sync Uid", type: HealthCheckType.syncUid),
-    HealthCheckInfo(name: "HD Tap Times", type: HealthCheckType.hdTapTimes),
-    HealthCheckInfo(name: "NDEF Tap Times", type: HealthCheckType.ndefTapTimes),
+    HealthCheckInfo(
+        name: languageResource.exportTimes, type: HealthCheckType.exportTimes),
+    HealthCheckInfo(
+        name: languageResource.restoreTimes,
+        type: HealthCheckType.restoreTimes),
+    HealthCheckInfo(
+        name: languageResource.syncUid, type: HealthCheckType.syncUid),
+    HealthCheckInfo(
+        name: languageResource.hdTapTimes, type: HealthCheckType.hdTapTimes),
+    HealthCheckInfo(
+        name: languageResource.ndefTapTimes,
+        type: HealthCheckType.ndefTapTimes),
   ];
   ctx.dispatch(CheckCardActionCreator.onInitTask(checkList));
 }

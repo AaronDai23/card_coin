@@ -30,6 +30,10 @@ Widget buildView(
                 .primaryGradient,
           ),
         ),
+        automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+                ?.settings
+                .arguments as Map?)?['fromDeepLink'] !=
+            true,
         title: const Text("My Asset"),
       ),
       body: PageDataLoadingView(
@@ -40,8 +44,11 @@ Widget buildView(
           },
           onLoadSuccess: () {
             final typeData = state.assetSummaryInfo?.assetTypeData ?? [];
+            final bottomSafeArea =
+                MediaQuery.of(viewService.context).padding.bottom;
             return Padding(
-              padding: const EdgeInsets.all(16),
+              padding:
+                  EdgeInsets.fromLTRB(16, 16, 16, hasBottomButtons ? 0 : 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -340,7 +347,8 @@ Widget buildView(
                           ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    // 使用安全区底部间距，让按钮紧贴底部
+                    SizedBox(height: bottomSafeArea > 0 ? bottomSafeArea : 12),
                   ],
                 ],
               ),

@@ -154,6 +154,7 @@ import 'reown_wallet/deep_link_handler.dart';
 import 'reown_wallet/i_walletkit_service.dart';
 import 'reown_wallet/key_service/chain_key.dart';
 import 'reown_wallet/models/chain_data.dart';
+import 'utils/deep_link_manager.dart';
 
 // Color mainColor = Color(0xFF2337f9);
 RouteObserver<PopRoute> routeObserver = RouteObserver<PopRoute>();
@@ -411,65 +412,65 @@ class AppRoute {
     return _allRoutes.contains(routeName);
   }
 
-  // ===== 新增：带登录校验的安全跳转 =====
-  /// 带登录校验的页面跳转（支持清除历史栈）
-  static Future<void> pushNamedWithAuthCheck({
-    required BuildContext context,
-    required String routeName,
-    RoutePredicate? predicate,
-    Object? arguments,
-    String? errorMessage,
-  }) async {
-    // 1. 先检查路由是否存在
-    if (!isRouteExist(routeName)) {
-      Navigator.pushNamed(
-        context,
-        'errorTipPage',
-        arguments: {
-          'errorMessage': errorMessage ?? 'Page: "$routeName" no find',
-          'returnRoute': 'splashPage',
-        },
-      );
-      return;
-    }
+  // // ===== 新增：带登录校验的安全跳转 =====
+  // /// 带登录校验的页面跳转（支持清除历史栈）
+  // static Future<void> pushNamedWithAuthCheck({
+  //   required BuildContext context,
+  //   required String routeName,
+  //   RoutePredicate? predicate,
+  //   Object? arguments,
+  //   String? errorMessage,
+  // }) async {
+  //   // 1. 先检查路由是否存在
+  //   if (!isRouteExist(routeName)) {
+  //     Navigator.pushNamed(
+  //       context,
+  //       'errorTipPage',
+  //       arguments: {
+  //         'errorMessage': errorMessage ?? 'Page: "$routeName" no find',
+  //         'returnRoute': 'splashPage',
+  //       },
+  //     );
+  //     return;
+  //   }
 
-    // 2. 检查该路由是否需要登录
-    if (LoginAuthUtil.isRouteNeedLogin(routeName)) {
-      bool isLogin = await LoginAuthUtil.isLogin();
+  //   // 2. 检查该路由是否需要登录
+  //   if (LoginAuthUtil.isRouteNeedLogin(routeName)) {
+  //     bool isLogin = await LoginAuthUtil.isLogin();
 
-      if (!isLogin) {
-        // 未登录：记录目标页面，跳转到登录页
-        await LoginAuthUtil.saveTargetRoute(routeName, arguments: arguments);
+  //     if (!isLogin) {
+  //       // 未登录：记录目标页面，跳转到登录页
+  //       await LoginAuthUtil.saveTargetRoute(routeName, arguments: arguments);
 
-        // 跳转到登录页，并等待登录结果
-        bool? loginSuccess =
-            await Navigator.pushNamed(context, 'multipleLoginPage') as bool?;
+  //       // 跳转到登录页，并等待登录结果
+  //       bool? loginSuccess =
+  //           await Navigator.pushNamed(context, 'multipleLoginPage') as bool?;
 
-        if (loginSuccess != true) {
-          // 登录取消/失败，不跳转
-          return;
-        }
-      }
-    }
+  //       if (loginSuccess != true) {
+  //         // 登录取消/失败，不跳转
+  //         return;
+  //       }
+  //     }
+  //   }
 
-    // 3. 路由存在且登录状态满足，执行跳转
-    if (predicate != null) {
-      // 清除历史栈的跳转（如你的cardBaseMainPage场景）
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        routeName,
-        predicate,
-        arguments: arguments,
-      );
-    } else {
-      // 普通跳转
-      Navigator.pushNamed(
-        context,
-        routeName,
-        arguments: arguments,
-      );
-    }
-  }
+  //   // 3. 路由存在且登录状态满足，执行跳转
+  //   if (predicate != null) {
+  //     // 清除历史栈的跳转（如你的cardBaseMainPage场景）
+  //     Navigator.pushNamedAndRemoveUntil(
+  //       context,
+  //       routeName,
+  //       predicate,
+  //       arguments: arguments,
+  //     );
+  //   } else {
+  //     // 普通跳转
+  //     Navigator.pushNamed(
+  //       context,
+  //       routeName,
+  //       arguments: arguments,
+  //     );
+  //   }
+  // }
 }
 
 Future<void> mainCommon() async {
@@ -557,10 +558,10 @@ class _MyAppState extends State<MyApp> {
         if (!mounted) return;
         _sharetraceHandle();
       }));
-      // // 1. 初始化获取启动时的深度链接
-      // _getInitialLink();
-      // // 2. 监听运行时的深度链接
-      // _listenToLinks();
+      // DeepLink 初始化：在第一帧渲染完成后立即启动，
+      // 不依赖 fish_redux 的 SplashPage.Lifecycle.initState，
+      // 避免初始路由时序问题导致 DeepLinkManager 未被调用。
+      DeepLinkManager().init();
     });
     StartupTime.mark('myapp_before_initialize');
     initialize();
@@ -819,8 +820,44 @@ class _MyAppState extends State<MyApp> {
         onGenerateRoute: (RouteSettings settings) {
           // 全局路由检查
           String routeName = settings.name ?? '';
+
+          // Deep Link 路由检测：
+          // 冷启动 → Flutter 推入完整 URL：https://asset.dropromo.com/?target=...
+          // 热启动 → Flutter 引擎只取路径部分：/?target=...（不含 host）
+          // 两种形式都需要处理。
+          Uri? _deepLinkUri;
+          if (routeName.startsWith('http://') ||
+              routeName.startsWith('https://')) {
+            _deepLinkUri = Uri.tryParse(routeName);
+          } else if (routeName.startsWith('/') &&
+              routeName.contains('target=')) {
+            // 热启动路径形式，补全为可解析的 URI
+            _deepLinkUri = Uri.tryParse('https://placeholder.com$routeName');
+          }
+
+          if (_deepLinkUri != null) {
+            final target = _deepLinkUri.queryParameters['target'] ?? '';
+
+            if (target.isNotEmpty && AppRoute.isRouteExist(target)) {
+              // 无论冷启动还是热启动，统一立即弹出，交给 DeepLinkManager 处理：
+              // • 冷启动：SplashPage 正常运行完成（跳到 cardBaseMainPage）后，
+              //   DeepLinkManager 等待主页就绪，推入 目标页（栈：[cardBaseMainPage, target]）
+              // • 热启动：uriLinkStream 触发，DeepLinkManager 等 80ms 后推入目标页
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (context) => const _AutoPopPage(),
+              );
+            } else {
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (context) => const _AutoPopPage(),
+              );
+            }
+          }
+
           // 全局路由不存在检查
           if (!AppRoute.isRouteExist(settings.name ?? '')) {
+            print('Route not found: ${settings.name}');
             settings = RouteSettings(
               name: 'errorTipPage',
               arguments: {
@@ -862,4 +899,32 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
+}
+
+/// Deep Link 占位页：被推入后立即弹出，让导航栈回到正常状态。
+/// DeepLinkManager 负责在主页就绪后推入真正的目标页面。
+class _AutoPopPage extends StatefulWidget {
+  const _AutoPopPage();
+
+  @override
+  State<_AutoPopPage> createState() => _AutoPopPageState();
+}
+
+class _AutoPopPageState extends State<_AutoPopPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (Navigator.canPop(context)) {
+        // 热启动：_AutoPopPage 在栈顶（现有路由之上），pop 回之前的页面
+        Navigator.pop(context);
+      }
+      // 冷启动：_AutoPopPage 在栈底，splashPage 在栈顶（用户看到的是 splashPage）
+      // canPop = false，不 pop，等 SplashPage 的 pushNamedAndRemoveUntil 把它一起清掉
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

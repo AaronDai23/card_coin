@@ -21,6 +21,10 @@ Widget buildView(
               .primaryGradient,
         ),
       ),
+      automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+              ?.settings
+              .arguments as Map?)?['fromDeepLink'] !=
+          true,
       title: Text(state.loadStatus == LoadType.loadSuccess
           ? state.registerMethodList[state.currentIndex].name ?? ''
           : ''),
@@ -158,8 +162,23 @@ Widget buildView(
                 ),
                 Center(
                     child: TextButton(
-                        onPressed: () => Navigator.of(viewService.context)
-                            .pushReplacementNamed('multipleLoginPage'),
+                        onPressed: () {
+                          // 若来自 deeplink 冷启动，此时栈下面没有有意义的页面，
+                          // 用 pushReplacement 会导致按返回直接回到空白 splashPage。
+                          // 改为 pushNamed，保留 registerPage 在栈中，
+                          // 这样从 loginPage 返回时能回到 registerPage。
+                          final args = ModalRoute.of(viewService.context)
+                              ?.settings
+                              .arguments as Map?;
+                          final fromDeepLink = args?['fromDeepLink'] == true;
+                          if (fromDeepLink) {
+                            Navigator.of(viewService.context)
+                                .pushNamed('multipleLoginPage');
+                          } else {
+                            Navigator.of(viewService.context)
+                                .pushReplacementNamed('multipleLoginPage');
+                          }
+                        },
                         child: const Text(
                           'Already have account? Go login',
                           style: TextStyle(fontSize: 12),

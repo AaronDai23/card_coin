@@ -42,6 +42,11 @@ class PageFieldConfigInfo {
   bool? isShowCardMerchantTitle = false;
   bool? isShowCardBackgroundImage = false;
   bool? isShowCardChainStamp = false;
+  bool? isShowCryptoAddress = false;
+  bool? isShowTotalBalance = false;
+  bool? isShowCryptoSelect = false;
+  bool? isShowLanguage = false;
+  bool? isShowBalanceDetail = false;
 
   PageFieldConfigInfo({
     this.isShowKLine = false,
@@ -87,5 +92,10 @@ class PageFieldConfigInfo {
     this.isShowCardMerchantTitle = false,
     this.isShowCardBackgroundImage = false,
     this.isShowCardChainStamp = false,
+    this.isShowCryptoAddress = false,
+    this.isShowTotalBalance = false,
+    this.isShowCryptoSelect = false,
+    this.isShowLanguage = false,
+    this.isShowBalanceDetail = false,
   });
 }

@@ -80,7 +80,6 @@ class _NonInvestmentCardSectionState extends State<NonInvestmentCardSection> {
 
     final contentWidgets = [
       _buildTotalBalance(),
-      _buildCardNo(),
       _buildName(),
       _buildMerchantTitle(),
       _buildMobile(),
@@ -371,32 +370,7 @@ class _NonInvestmentCardSectionState extends State<NonInvestmentCardSection> {
   }
 
   bool _isOnlyCardNoVisible() {
-    final showCardNo =
-        pageConfig.isShowCardNo == true && card.cardNo?.isNotEmpty == true;
-    final showTotalBalance = widget.showTotalBalance &&
-        widget.totalBalance != null &&
-        widget.totalBalance!.isNotEmpty;
-    final showName = pageConfig.isShowPostCardName == true &&
-        card.contact?.isNotEmpty == true;
-    final showMerchantTitle = pageConfig.isShowCardMerchantTitle == true &&
-        card.merchant?.title?.isNotEmpty == true;
-    final showMobile = pageConfig.isShowPostCardMobile == true &&
-        card.mobile?.isNotEmpty == true;
-    final showEmail = pageConfig.isShowPostCardEmail == true &&
-        card.email?.isNotEmpty == true;
-    final showAddress = pageConfig.isShowPostCardAddress == true &&
-        card.address?.isNotEmpty == true;
-    final showDescription = pageConfig.isShowCardDescription == true &&
-        card.description?.isNotEmpty == true;
-
-    return showCardNo &&
-        !showTotalBalance &&
-        !showName &&
-        !showMerchantTitle &&
-        !showMobile &&
-        !showEmail &&
-        !showAddress &&
-        !showDescription;
+    return false;
   }
 
   Widget _buildMerchantTitle() {

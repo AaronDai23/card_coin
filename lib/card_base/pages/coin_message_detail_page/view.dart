@@ -17,6 +17,10 @@ Widget buildView(
                   .primaryGradient,
             ),
           ),
+          automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+                  ?.settings
+                  .arguments as Map?)?['fromDeepLink'] !=
+              true,
           title: const Text("Message Detail")),
       body: PageDataLoadingView(
         loadStatus: state.loadStatus,

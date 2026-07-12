@@ -7,7 +7,6 @@ import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.os.PersistableBundle
 import com.chipcore.sdk.flutter.ChipCoreBlockchainApi
-import com.tencent.bugly.crashreport.CrashReport
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -30,15 +29,44 @@ class MainActivity: FlutterFragmentActivity() {
             it == "android.nfc.action.TAG_DISCOVERED"
         } ?: false
 
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        // 冷启动时 NFC 可能作为 launchIntent 传入；在任何插件（app_links）读取之前
-        // 把它替换成空 intent，防止被当成 deeplink 投递给 Flutter。
-        if (isNfcIntent(intent)) {
+    /** 判断 intent 是否来自 NFC（包括 action 和 extras 两种路径） */
+    private fun isNfcSource(i: Intent?): Boolean {
+        if (i == null) return false
+        // 常规 NFC dispatch：action 是 NFC 专属 action
+        if (isNfcIntent(i)) return true
+        // 当 app 注册了 autoVerify App Links 且验证通过时，Android 可能把 NFC NDEF URL
+        // 以 ACTION_VIEW 发给 app（走 App Link 路径），此时 action 不再是 NDEF_DISCOVERED。
+        // 但 NFC dispatch 系统仍然会在 extras 中附带 EXTRA_TAG（NFC Tag 对象），
+        // 利用这个 extra 可以可靠地区分 NFC 来源和普通 deeplink 点击。
+        if (i.hasExtra(NfcAdapter.EXTRA_TAG)) return true
+        if (i.hasExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)) return true
+        return false
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        val i = intent
+        android.util.Log.d("NFC_DEBUG",
+            "onCreate action=${i?.action} data=${i?.data} extras=${i?.extras?.keySet()}")
+        // 冷启动时 NFC 可能作为 launchIntent 传入。
+        // 必须在 super.onCreate 之前替换掉，否则 app_links 等插件会在
+        // super.onCreate 内部的 FlutterFragment 初始化阶段读取到原始 NFC intent，
+        // 把卡片 URL 当成 deeplink 投递给 Flutter。
+        if (isNfcSource(i)) {
+            android.util.Log.d("NFC_DEBUG", "Suppressing NFC launch intent")
             setIntent(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
         }
+        super.onCreate(savedInstanceState)
+          android.util.Log.d("NFC_DEBUG",
+            "onCreate action33333=${i?.action} data=${i?.data} extras=${i?.extras?.keySet()}")
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         ChipCoreBlockchainApi.register(flutterEngine.dartExecutor.binaryMessenger, this)
-        val intent: Intent? = intent
-        initialLink = if (isNfcIntent(intent)) null else intent?.data?.toString()
+        // 经过 onCreate 的 setIntent 过滤，此时 intent 一定不是 NFC intent
+        val t0 = System.currentTimeMillis()
+        android.util.Log.d("TIMING", "[configureFlutterEngine] start, t=${t0}")
+        initialLink = intent?.data?.toString()
+        android.util.Log.d("TIMING", "[configureFlutterEngine] initialLink=$initialLink, t=${System.currentTimeMillis()-t0}ms")
 
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, eventsChannel).setStreamHandler(
             object : EventChannel.StreamHandler {
@@ -53,13 +81,16 @@ class MainActivity: FlutterFragmentActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, methodsChannel).setMethodCallHandler { call, result ->
             if (call.method == "initialLink") {
-                if (initialLink != null) {
-                    result.success(initialLink)
-                }
+                android.util.Log.d("TIMING", "[MethodChannel] initialLink called, responding with: $initialLink, t=${System.currentTimeMillis()-t0}ms")
+                // initialLink 为 null 时也必须回调，否则 Dart 侧 invokeMethod 会挂起直到超时
+                result.success(initialLink)
+            } else {
+                result.notImplemented()
             }
         }
+        android.util.Log.d("TIMING", "[configureFlutterEngine] calling super, t=${System.currentTimeMillis()-t0}ms")
         super.configureFlutterEngine(flutterEngine)
-        CrashReport.initCrashReport(applicationContext,"5eb7318bee",false)
+        android.util.Log.d("TIMING", "[configureFlutterEngine] super done, t=${System.currentTimeMillis()-t0}ms")
     }
 
     override fun onResume() {
@@ -85,34 +116,31 @@ class MainActivity: FlutterFragmentActivity() {
     }
 
     override fun onNewIntent(intent: Intent) {
-        val action = intent.action
-        // NFC intent 不转发给 Flutter 插件层：
+        android.util.Log.d("NFC_DEBUG",
+            "onNewIntent action=${intent.action} data=${intent.data} extras=${intent.extras?.keySet()}")
+        // NFC intent 不转发给 Flutter 插件层（包括 ACTION_VIEW + EXTRA_TAG 的 App Link 路径）：
         // app_links 通过 super.onNewIntent 拦截所有 intent，若把 NDEF_DISCOVERED 传下去
         // 它会把卡片 URL 当成 deeplink 投递给 Dart 层，导致放卡就自动跳转页面。
         // ChipCoreSDK 使用 enableReaderMode(ReaderCallback)，不依赖 onNewIntent，可安全跳过。
-        if (action == "android.nfc.action.NDEF_DISCOVERED" ||
-            action == "android.nfc.action.TECH_DISCOVERED" ||
-            action == "android.nfc.action.TAG_DISCOVERED") {
+        if (isNfcSource(intent)) {
+            android.util.Log.d("NFC_DEBUG", "Suppressing NFC new-intent")
             return
         }
+
         super.onNewIntent(intent)
-        println("onNewIntent: $intent")
+         android.util.Log.d("NFC_DEBUG",
+            "onNewIntent action2222=${intent.action} data=${intent.data} extras=${intent.extras?.keySet()}")
         // 只有 ACTION_VIEW（deeplink）才保留 Intent 让 app_links 读取
         if (intent.action == Intent.ACTION_VIEW) {
             setIntent(intent)
         }
-        if (intent.action === Intent.ACTION_VIEW) {
-            println("onNewIntent111: $intent")
-            if (intent.scheme?.contains("st944a9eb04e40fdbc") == true ) {
-                println("onNewIntent222: $intent")
-//                  setIntent(intent)
-//                linksReceiver?.onReceive(this.applicationContext, intent)
-            }else {
+        if (intent.action == Intent.ACTION_VIEW) {
+            if (intent.scheme?.contains("st944a9eb04e40fdbc") == true) {
+                // st 链接：setIntent 已经在上面做了，intentReceiver 不需要额外触发
+            } else {
                 if (intent.scheme?.contains("wc") == true) {
                     linksReceiver?.onReceive(this.applicationContext, intent)
                 }
-                println("onNewIntent333: $intent")
-
             }
         }
     }

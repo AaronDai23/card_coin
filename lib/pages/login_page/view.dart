@@ -16,23 +16,32 @@ Widget buildView(LoginState state, Dispatch dispatch, ViewService viewService) {
               .primaryGradient,
         ),
       ),
+      automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+              ?.settings
+              .arguments as Map?)?['fromDeepLink'] !=
+          true,
       title: const Text(
         'Login',
         style: TextStyle(color: Colors.white, fontSize: 18),
       ),
-      leading: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 10.0),
-          child: const Icon(
-            Icons.arrow_back,
-            color: Colors.white,
-          ),
-        ),
-        onTap: () {
-          Navigator.of(viewService.context).pop();
-        },
-      ),
+      leading: (ModalRoute.of(viewService.context)?.settings.arguments
+                  as Map?)?['fromDeepLink'] ==
+              true
+          ? null
+          : GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 6.0, horizontal: 10.0),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                ),
+              ),
+              onTap: () {
+                Navigator.of(viewService.context).pop();
+              },
+            ),
     ),
     backgroundColor: Colors.grey[200],
     body: SingleChildScrollView(
@@ -113,7 +122,9 @@ Widget buildView(LoginState state, Dispatch dispatch, ViewService viewService) {
                         state.keepPwd
                             ? Icons.check_box_outlined
                             : Icons.check_box_outline_blank_outlined,
-                        color: state.keepPwd ? const Color(0xFF2337f9) : Colors.grey,
+                        color: state.keepPwd
+                            ? const Color(0xFF2337f9)
+                            : Colors.grey,
                       ),
                       const SizedBox(
                         width: 8.0,

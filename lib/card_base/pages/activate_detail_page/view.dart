@@ -14,6 +14,10 @@ Widget buildView(
       languageResource.activateDetail.replaceAll('\\n', '\n');
   return Scaffold(
     appBar: AppBar(
+      automaticallyImplyLeading: (ModalRoute.of(viewService.context)
+              ?.settings
+              .arguments as Map?)?['fromDeepLink'] !=
+          true,
       title: Text(state.title ?? ''),
       flexibleSpace: Container(
         decoration: BoxDecoration(

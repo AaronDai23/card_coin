@@ -16,7 +16,7 @@ import 'app.dart';
 Future<void> main() async {
   var configuredApp = AppConfig(
     appDisplayName: "Chipbase",
-    appInternalId: AppType.pro,
+    appInternalId: AppType.bestWish,
     stringResource: StringResourceMainPro(),
     child: const MyApp(),
   );

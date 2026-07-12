@@ -455,6 +455,21 @@ void _onCheckPageConfig(
       if (element.fieldCode == "chain_stamp") {
         info.isShowCardChainStamp = true;
       }
+      if (element.fieldCode == "crypto_address") {
+        info.isShowCryptoAddress = true;
+      }
+      if (element.fieldCode == "total_balance") {
+        info.isShowTotalBalance = true;
+      }
+      if (element.fieldCode == "crypto_select") {
+        info.isShowCryptoSelect = true;
+      }
+      if (element.fieldCode == "language") {
+        info.isShowLanguage = true;
+      }
+      if (element.fieldCode == "balance_detail") {
+        info.isShowBalanceDetail = true;
+      }
     }
 
     if (info.isShowTotalInvestment == false &&

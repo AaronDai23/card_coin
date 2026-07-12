@@ -316,6 +316,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=G76B76R439 \
             archive > "$ARCHIVE_LOG" 2>&1; then
             cat "$ARCHIVE_LOG"
@@ -326,18 +327,27 @@ jobs:
 
       # ── 10. Export IPA ────────────────────────────────────────────────────────
       - name: Export IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -eo pipefail
           ARCHIVE_PATH="$RUNNER_TEMP/Runner.xcarchive"
           EXPORT_PATH="$RUNNER_TEMP/ipa"
           EXPORT_LOG="$RUNNER_TEMP/xcodebuild-export.log"
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
-          # 使用手动签名（manual signingStyle），不需要 -allowProvisioningUpdates
-          # 和 App Store Connect API Key，证书和 Profile 已在前面步骤导入
+          # signingStyle=automatic + allowProvisioningUpdates:
+          # Xcode 通过 ASC API Key 自动为 Runner(com.cardbase.app) 和
+          # Clip(com.cardbase.app.Clip) 两个 target 下载并应用正确的 Distribution Profile。
           if ! xcodebuild -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist ios/ExportOptions.plist \
             -exportPath "$EXPORT_PATH" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             > "$EXPORT_LOG" 2>&1; then
             cat "$EXPORT_LOG"
             exit 1

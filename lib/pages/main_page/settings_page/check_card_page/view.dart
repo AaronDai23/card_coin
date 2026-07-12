@@ -16,15 +16,10 @@ Widget buildView(
   int totalCount = 21;
   int docount = 0;
 
-  bool isStart = false;
-  int startCount = 0;
   for (var element in state.checkList) {
     if (element.status != HealthStatus.none &&
         element.status != HealthStatus.process) {
       count++;
-    }
-    if (element.status == HealthStatus.none) {
-      startCount++;
     }
 
     if (element.status == HealthStatus.failed ||
@@ -36,13 +31,7 @@ Widget buildView(
       docount++;
     }
   }
-  if (startCount == 21) {
-    isStart = false;
-  } else {
-    isStart = true;
-  }
-  double sucvalue = (totalCount - failCount) / totalCount;
-  // double value = count / totalCount;
+  // 圆环进度改用 state.percent（每项正常完成 +10%）
   var languageResource = state.languageResource!;
   return Scaffold(
     appBar: AppBar(
@@ -53,11 +42,14 @@ Widget buildView(
               .primaryGradient,
         ),
       ),
+      automaticallyImplyLeading: !state.fromDeepLink,
       title: Text(languageResource.healthCheck),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.of(viewService.context).pop(),
-      ),
+      leading: state.fromDeepLink
+          ? null // deeplink 跳入：无上层页面，隐藏返回按钮
+          : IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(viewService.context).pop(),
+            ),
     ),
     body: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
@@ -97,18 +89,25 @@ Widget buildView(
                           return SizedBox(
                             width: constraints.maxWidth * 0.3,
                             height: constraints.maxWidth * 0.3,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 6,
-                              value: isStart ? sucvalue : 0,
-                              backgroundColor: Colors.grey[200],
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color.fromARGB(255, 9, 91, 12)),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween<double>(
+                                  begin: 0, end: state.percent / 100),
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeOut,
+                              builder: (_, value, __) =>
+                                  CircularProgressIndicator(
+                                strokeWidth: 6,
+                                value: value,
+                                backgroundColor: Colors.grey[200],
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Color.fromARGB(255, 9, 91, 12)),
+                              ),
                             ),
                           );
                         },
                       ),
                       Text(
-                        '${double.parse(((isStart ? sucvalue : 0) * 100).toStringAsFixed(0))}%',
+                        '${state.percent.toStringAsFixed(0)}%',
                         style: const TextStyle(
                           color: Color.fromARGB(255, 14, 72, 16),
                           fontSize: 20,
@@ -164,21 +163,26 @@ Widget buildView(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            "${index + 1}. ${taskItem.name}",
-                            textAlign: TextAlign.left,
-                          ),
+                        Text(
+                          "${index + 1}. ${taskItem.name}",
+                          textAlign: TextAlign.left,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(width: 12),
                         taskItem.status == HealthStatus.process
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator())
+                            ? const Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              )
                             : Expanded(
-                                flex: 3,
                                 child: Text(
                                   taskItem.result == null
                                       ? ''
@@ -220,7 +224,7 @@ Widget buildView(
                           languageResource.checking,
                         )
                       : state.showScanTip
-                          ? const Text('Stop')
+                          ? Text(languageResource.stop)
                           : Text(
                               languageResource.startCheck,
                             )),

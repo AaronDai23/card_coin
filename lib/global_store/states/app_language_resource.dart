@@ -1344,4 +1344,20 @@ class AppLanguageResource {
       _messages['client.checkingPhoneNetwork'], 'Checking mobile network...');
   String get noPhoneNetwork => notNullString(_messages['client.noPhoneNetwork'],
       'Currently in airplane mode or without network connection.');
+
+  String get exportTimes =>
+      notNullString(_messages['client.exportTimes'], 'Export Times');
+
+  String get restoreTimes =>
+      notNullString(_messages['client.restoreTimes'], 'Restore Times');
+
+  String get syncUid => notNullString(_messages['client.syncUid'], 'Sync UID');
+
+  String get hdTapTimes =>
+      notNullString(_messages['client.hdTapTimes'], 'HD Tap Times');
+
+  String get ndefTapTimes =>
+      notNullString(_messages['client.ndefTapTimes'], 'NDEF Tap Times');
+
+  String get stop => notNullString(_messages['client.stop'], 'Stop');
 }

@@ -33,15 +33,15 @@ class FiatInfo {
     if (json['currentPrice'] is num) {
       currentPrice = json['currentPrice'].toString();
     } else {
-      currentPrice = json['currentPrice'];
+      currentPrice = json['currentPrice']?.toString() ?? '0';
     }
 
     if (json['scale'] is int) {
       scale = json['scale'].toString();
     } else {
-      scale = json['scale'];
+      scale = json['scale']?.toString() ?? '2';
     }
-    currency = json['currency'];
+    currency = json['currency']?.toString() ?? '';
   }
 
   Map<String, dynamic> toJson() {

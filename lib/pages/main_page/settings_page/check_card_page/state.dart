@@ -14,6 +14,7 @@ class CheckCardState implements GlobalBaseState<CheckCardState> {
   bool showScanTip = false;
   int failCount = 0;
   int from = -1;
+  bool fromDeepLink = false; // true 时隐藏顶部返回按钮（从浏览器 deeplink 跳入）
   Timer? timer;
   // late CardInfo cardInfo;
   String? cardNum;
@@ -32,6 +33,7 @@ class CheckCardState implements GlobalBaseState<CheckCardState> {
       ..showScanTip = showScanTip
       ..failCount = failCount
       ..canceler = canceler
+      ..fromDeepLink = fromDeepLink
       ..languageResource = languageResource
       ..languageLocale = languageLocale
       ..from = from;
@@ -45,5 +47,7 @@ class CheckCardState implements GlobalBaseState<CheckCardState> {
 }
 
 CheckCardState initState(Map<String, dynamic>? args) {
-  return CheckCardState();
+  final state = CheckCardState();
+  state.fromDeepLink = args?['fromDeepLink'] == true;
+  return state;
 }
