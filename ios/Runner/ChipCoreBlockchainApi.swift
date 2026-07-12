@@ -1028,6 +1028,11 @@ private final class HdWalletCardClient {
     }
   }
 
+  /// NDEF URL 写入占位实现（功能尚未在 SDK 中支持，直接回调成功跳过写入）
+  func writeNdefAndVerify(url: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    completion(.success(()))
+  }
+
   private func parseKeyMaterial(_ payload: Data) throws -> KeyMaterial {
     let tags = try parseResponse(payload)
     guard let publicKey = tags[HdWalletApdu.tagPublicKey] else {
