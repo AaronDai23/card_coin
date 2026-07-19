@@ -65,6 +65,7 @@ import 'package:card_coin/pages/main_page/settings_page/check_card_page/page.dar
 import 'package:card_coin/pages/main_page/settings_page/device_settings_page/page.dart';
 import 'package:card_coin/pages/main_page/settings_page/page.dart';
 import 'package:card_coin/pages/main_page/unlock_pin_code_page/page.dart';
+import 'package:card_coin/pages/main_page/write_ntag_page/page.dart';
 import 'package:card_coin/pages/scan_qrcode_page/page.dart';
 import 'package:card_coin/pages/splash_page/page.dart';
 import 'package:card_coin/pages/webview_page/page.dart';
@@ -180,6 +181,7 @@ class AppRoute {
     'cancelPinCodePage',
     'unlockPinCodePage',
     'writeCardPage',
+    'writeNtagPage',
     'webviewPage',
     'appVersionPage',
     'createNewWalletPage',
@@ -291,6 +293,7 @@ class AppRoute {
         'cancelPinCodePage': CancelPinCodePage(),
         'unlockPinCodePage': UnlockPinCodePage(),
         'writeCardPage': WriteCardPage(),
+        'writeNtagPage': WriteNtagPage(),
         'webviewPage': WebviewPage(),
         'appVersionPage': AppVersionPage(),
         'createNewWalletPage': CreateNewWalletPage(),

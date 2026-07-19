@@ -38,6 +38,7 @@ Effect<SettingsState>? buildEffect() {
     SettingsAction.loadData: _onInit,
     SettingsAction.cancelAccount: _onCancelAccount,
     SettingsAction.networkCheck: _onNetworkCheck,
+    SettingsAction.writeNtag: _onWriteNtag,
   });
 }
 
@@ -117,6 +118,10 @@ void _loadSettingsNonCriticalData(Context<SettingsState> ctx) {
 
 Future<void> _onNetworkCheck(Action action, Context<SettingsState> ctx) async {
   Navigator.of(ctx.context).pushNamed('networkCheckPage');
+}
+
+Future<void> _onWriteNtag(Action action, Context<SettingsState> ctx) async {
+  Navigator.of(ctx.context).pushNamed('writeNtagPage');
 }
 
 Future<void> _onEditNameClick(Action action, Context<SettingsState> ctx) async {

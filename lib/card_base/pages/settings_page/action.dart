@@ -13,6 +13,7 @@ enum SettingsAction {
   itemClick,
   cancelAccount,
   writeCard,
+  writeNtag,
   refreshUserInfo,
   editNameClick,
   editAvatarClick,
@@ -76,5 +77,9 @@ class SettingsActionCreator {
 
   static Action onNetworkCheck() {
     return const Action(SettingsAction.networkCheck);
+  }
+
+  static Action onWriteNtag() {
+    return const Action(SettingsAction.writeNtag);
   }
 }
