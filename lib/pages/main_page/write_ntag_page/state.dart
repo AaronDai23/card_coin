@@ -4,19 +4,14 @@ import 'package:card_coin/widget/base_page_loading.dart';
 import 'package:flutter/material.dart';
 
 class WriteNtagState implements GlobalBaseState<WriteNtagState>, PageLoad {
-  /// From MyCard `smartCardConfig.ndefDomain`.
   String domainUrl = '';
-
-  /// From MyCard `smartCardConfig.ndefAAR` (comma-separated packages).
   String ndefAAR = '';
-
-  /// Filled after NFC scan from the physical tag UID.
   String scannedUid = '';
-
-  /// Built after scan: domain + uid Base64.
   String fullNdefUrl = '';
+  String chipModel = '';
 
-  bool lockAfterWrite = true;
+  /// Password write-protect (reversible). Not permanent writeLock.
+  bool passwordProtect = true;
   bool isScanning = false;
   String statusMessage = '';
 
@@ -27,7 +22,8 @@ class WriteNtagState implements GlobalBaseState<WriteNtagState>, PageLoad {
       ..ndefAAR = ndefAAR
       ..scannedUid = scannedUid
       ..fullNdefUrl = fullNdefUrl
-      ..lockAfterWrite = lockAfterWrite
+      ..chipModel = chipModel
+      ..passwordProtect = passwordProtect
       ..isScanning = isScanning
       ..statusMessage = statusMessage
       ..loadStatus = loadStatus
@@ -51,7 +47,7 @@ class WriteNtagState implements GlobalBaseState<WriteNtagState>, PageLoad {
 
 WriteNtagState initState(Map<String, dynamic>? args) {
   return WriteNtagState()
-    ..lockAfterWrite = true
+    ..passwordProtect = true
     ..isScanning = false
     ..statusMessage = ''
     ..loadStatus = LoadType.loading;

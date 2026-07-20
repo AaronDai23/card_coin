@@ -5,8 +5,9 @@ enum WriteNtagAction {
   loadSuccess,
   loadFailed,
   startWrite,
+  startDecode,
   cancelScan,
-  updateLock,
+  updatePasswordProtect,
   updateStatus,
   updateScanning,
   updateScanResult,
@@ -35,12 +36,16 @@ class WriteNtagActionCreator {
     return const Action(WriteNtagAction.startWrite);
   }
 
+  static Action onStartDecode() {
+    return const Action(WriteNtagAction.startDecode);
+  }
+
   static Action onCancelScan() {
     return const Action(WriteNtagAction.cancelScan);
   }
 
-  static Action onUpdateLock(bool value) {
-    return Action(WriteNtagAction.updateLock, payload: value);
+  static Action onUpdatePasswordProtect(bool value) {
+    return Action(WriteNtagAction.updatePasswordProtect, payload: value);
   }
 
   static Action onUpdateStatus(String message) {
@@ -54,10 +59,12 @@ class WriteNtagActionCreator {
   static Action onUpdateScanResult({
     required String scannedUid,
     required String fullNdefUrl,
+    String chipModel = '',
   }) {
     return Action(WriteNtagAction.updateScanResult, payload: <String, String>{
       'scannedUid': scannedUid,
       'fullNdefUrl': fullNdefUrl,
+      'chipModel': chipModel,
     });
   }
 }

@@ -27,7 +27,7 @@ Widget buildView(
           Navigator.of(viewService.context).pop();
         },
       ),
-      title: const Text('Write NTAG213'),
+      title: const Text('NTAG Write / Decode'),
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh),
@@ -48,8 +48,9 @@ Widget buildView(
             padding: const EdgeInsets.all(16),
             children: [
               const Text(
-                'Domain / browsers come from My Card config. '
-                'UID is read when you scan the NTAG, then written in the same tap.',
+                '写入：识别 213/215 → 若已有密码则弹窗输入 → 鉴权解锁 → 重写 URL+包名 → 可选再加写保护\n'
+                '解码：读回型号 / UID / URL / uid Base64 / AAR 包名\n'
+                '密码写保护可再次鉴权改写；不是永久锁定。',
                 style: TextStyle(color: Colors.black54, fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -70,32 +71,45 @@ Widget buildView(
               ),
               const SizedBox(height: 12),
               _InfoCard(
+                title: 'Chip model',
+                value: state.chipModel.isEmpty
+                    ? 'Detected on scan (213 / 215 / 216)'
+                    : state.chipModel,
+              ),
+              const SizedBox(height: 12),
+              _InfoCard(
                 title: 'Scanned UID',
                 value: state.scannedUid.isEmpty
-                    ? 'Not scanned yet — tap Scan & Write'
+                    ? 'From tag on Scan & Write / Decode'
                     : state.scannedUid,
               ),
               const SizedBox(height: 12),
               _InfoCard(
                 title: 'Full NDEF URL',
                 value: state.fullNdefUrl.isEmpty
-                    ? 'Built after scan: domain + uid=/Base64(UID)'
+                    ? 'domain + uid=/Base64(UID)'
                     : state.fullNdefUrl,
               ),
               const SizedBox(height: 12),
+              _InfoCard(
+                title: 'Write password (hex)',
+                value: NtagNdefWriter.defaultPasswordHex,
+              ),
+              const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Lock after write'),
+                title: const Text('Password write-protect'),
                 subtitle: const Text(
-                  'Permanent read-only. Cannot be unlocked later.',
+                  'Read/open URL free; rewrite needs password. Reversible.',
                 ),
-                value: state.lockAfterWrite,
+                value: state.passwordProtect,
                 onChanged: state.isScanning
                     ? null
-                    : (v) =>
-                        dispatch(WriteNtagActionCreator.onUpdateLock(v)),
+                    : (v) => dispatch(
+                          WriteNtagActionCreator.onUpdatePasswordProtect(v),
+                        ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -108,6 +122,28 @@ Widget buildView(
                     state.isScanning ? 'Waiting for tag…' : 'Scan & Write',
                   ),
                 ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: state.isScanning
+                      ? null
+                      : () =>
+                          dispatch(WriteNtagActionCreator.onStartDecode()),
+                  child: const Text('Scan & Decode'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '解码流程\n'
+                '1. 贴卡 → GET_VERSION 识别 213/215/216\n'
+                '2. 读标签 UID\n'
+                '3. NDEF.read 解析 URI 记录 → 完整 URL\n'
+                '4. 从 URL 的 uid= 参数 Base64 还原出 UID 十六进制\n'
+                '5. 解析 android.com:pkg 外部记录 → 浏览器包名列表',
+                style: TextStyle(color: Colors.black45, fontSize: 12, height: 1.4),
               ),
               if (state.statusMessage.isNotEmpty) ...[
                 const SizedBox(height: 16),
