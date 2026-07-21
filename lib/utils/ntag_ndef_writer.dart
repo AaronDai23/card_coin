@@ -383,6 +383,88 @@ class NtagNdefWriter {
         data: Uint8List.fromList([0xA2, page, ...fourBytes]));
   }
 
+  /// Serialize a single NDEF record to its on-tag byte representation.
+  static List<int> _serializeRecord(
+    NdefRecord record, {
+    required bool first,
+    required bool last,
+  }) {
+    final type = record.type;
+    final id = record.identifier;
+    final payload = record.payload;
+    final shortRecord = payload.length < 0x100;
+
+    var flags = 0;
+    if (first) flags |= 0x80; // MB
+    if (last) flags |= 0x40; // ME
+    if (shortRecord) flags |= 0x10; // SR
+    if (id.isNotEmpty) flags |= 0x08; // IL
+    flags |= (record.typeNameFormat.index & 0x07); // TNF
+
+    final out = <int>[flags, type.length];
+    if (shortRecord) {
+      out.add(payload.length & 0xFF);
+    } else {
+      out
+        ..add((payload.length >> 24) & 0xFF)
+        ..add((payload.length >> 16) & 0xFF)
+        ..add((payload.length >> 8) & 0xFF)
+        ..add(payload.length & 0xFF);
+    }
+    if (id.isNotEmpty) out.add(id.length);
+    out
+      ..addAll(type)
+      ..addAll(id)
+      ..addAll(payload);
+    return out;
+  }
+
+  /// Serialize a full NDEF message to bytes (record headers + payloads).
+  static List<int> serializeMessage(NdefMessage message) {
+    final out = <int>[];
+    for (var i = 0; i < message.records.length; i++) {
+      out.addAll(_serializeRecord(
+        message.records[i],
+        first: i == 0,
+        last: i == message.records.length - 1,
+      ));
+    }
+    return out;
+  }
+
+  /// Write an NDEF message using **raw NfcA page writes on the same
+  /// connection**, wrapping it in a Type-2 NDEF TLV. Use this after
+  /// [passwordAuth] so the authenticated session is preserved (switching to
+  /// the high-level [Ndef] tech reconnects the tag and drops PWD_AUTH).
+  static Future<void> writeNdefMessageViaNfcA(
+    NfcA nfcA,
+    NdefMessage message, {
+    int startPage = 4,
+  }) async {
+    final ndef = serializeMessage(message);
+    final tlv = <int>[0x03];
+    if (ndef.length < 0xFF) {
+      tlv.add(ndef.length);
+    } else {
+      tlv
+        ..add(0xFF)
+        ..add((ndef.length >> 8) & 0xFF)
+        ..add(ndef.length & 0xFF);
+    }
+    tlv
+      ..addAll(ndef)
+      ..add(0xFE); // terminator TLV
+    while (tlv.length % 4 != 0) {
+      tlv.add(0x00);
+    }
+
+    var page = startPage;
+    for (var i = 0; i < tlv.length; i += 4) {
+      await _writePage(nfcA, page, tlv.sublist(i, i + 4));
+      page++;
+    }
+  }
+
   /// Enable write-password protection (PROT=0: read free, write needs PWD).
   /// Call AFTER NDEF content is written. Do NOT call permanent writeLock.
   static Future<void> enablePasswordWriteProtect(
@@ -427,6 +509,8 @@ class NtagNdefWriter {
     var message = buildMessage(url: url, browserPackages: browserPackages);
 
     final nfcA = NfcA.from(tag);
+    final needAuth = alreadyAuthenticated || unlockPassword != null;
+
     if (!alreadyAuthenticated && unlockPassword != null && nfcA != null) {
       await passwordAuth(
         nfcA,
@@ -435,25 +519,34 @@ class NtagNdefWriter {
       );
     }
 
-    final ndef = Ndef.from(tag);
-    if (ndef != null) {
-      if (!ndef.isWritable) {
-        throw StateError(
-          'Tag reports not writable (permanent lock or missing auth). '
-          'If password-protected, unlock with PWD first; permanent lock cannot be undone.',
-        );
-      }
-      final budget = _budgetFor(model, ndef.maxSize);
-      message = fitToMaxSize(message, budget);
-      await ndef.write(message);
-    } else {
-      final formatable = NdefFormatable.from(tag);
-      if (formatable == null) {
-        throw StateError('Tag does not support NDEF write ($modelName)');
-      }
+    // Protected tag: we authenticated over NfcA. Keep writing over the SAME
+    // NfcA connection with raw page writes — switching to the high-level Ndef
+    // tech reconnects the tag and drops PWD_AUTH (=> io_exception).
+    if (needAuth && nfcA != null) {
       final budget = _budgetFor(model, null);
       message = fitToMaxSize(message, budget);
-      await formatable.format(message);
+      await writeNdefMessageViaNfcA(nfcA, message);
+    } else {
+      final ndef = Ndef.from(tag);
+      if (ndef != null) {
+        if (!ndef.isWritable) {
+          throw StateError(
+            'Tag reports not writable (permanent lock or missing auth). '
+            'If password-protected, unlock with PWD first; permanent lock cannot be undone.',
+          );
+        }
+        final budget = _budgetFor(model, ndef.maxSize);
+        message = fitToMaxSize(message, budget);
+        await ndef.write(message);
+      } else {
+        final formatable = NdefFormatable.from(tag);
+        if (formatable == null) {
+          throw StateError('Tag does not support NDEF write ($modelName)');
+        }
+        final budget = _budgetFor(model, null);
+        message = fitToMaxSize(message, budget);
+        await formatable.format(message);
+      }
     }
 
     var protectNote = 'no password protect';
