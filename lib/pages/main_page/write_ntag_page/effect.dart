@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:card_coin/cache/local_storage.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
@@ -16,6 +18,24 @@ import 'action.dart';
 import 'state.dart';
 
 void _log(String msg) => debugPrint('NTAGWRITE: $msg');
+
+const MethodChannel _nfcChannel = MethodChannel('com.cardcoin.card_coin/nfc');
+
+/// Toggle the native Activity's NFC foreground dispatch. Must be disabled
+/// while an nfc_manager reader session is active, otherwise both fire on the
+/// same tap and disrupt the tag connection mid-write.
+Future<void> _setNativeForegroundDispatch(bool enabled) async {
+  if (!Platform.isAndroid) return;
+  try {
+    await _nfcChannel.invokeMethod(
+      'setForegroundDispatchEnabled',
+      {'enabled': enabled},
+    );
+    _log('native foreground dispatch enabled=$enabled');
+  } catch (e) {
+    _log('setForegroundDispatchEnabled($enabled) failed: $e');
+  }
+}
 
 Effect<WriteNtagState>? buildEffect() {
   return combineEffects(<Object, Effect<WriteNtagState>>{
@@ -48,6 +68,8 @@ Future<void> _finishSession() async {
   try {
     await BlockchainPlatform.instance.resetNfcReaderMode();
   } catch (_) {}
+  // Restore the Activity's normal NFC foreground dispatch.
+  await _setNativeForegroundDispatch(true);
 }
 
 Future<void> _onLoadConfig(Action action, Context<WriteNtagState> ctx) async {
@@ -126,10 +148,14 @@ Future<void> _runNfcSession({
     showToast('NFC timeout');
   });
 
+  // Disable the native foreground dispatch BEFORE enabling reader mode, so the
+  // two NFC paths don't both fire on the same tap (which churns Activity focus
+  // and breaks the tag connection mid-write). Restored in _finishSession.
+  await _setNativeForegroundDispatch(false);
+
   // Mirror the proven check_card_page sequence: stop any stale session and
   // start the new one back-to-back with NO awaits in between, so that
-  // nfc_manager's enableReaderMode reliably takes over the Activity's
-  // foreground dispatch (enabled in MainActivity.onResume). Do NOT call
+  // nfc_manager's enableReaderMode reliably takes over. Do NOT call
   // resetNfcReaderMode here — that would cancel the reader mode we enable.
   NfcManager.instance.stopSession();
   _log('runNfcSession: calling startSession (enableReaderMode)');
@@ -237,8 +263,11 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
     ctx: ctx,
     alertMessage: 'Hold NTAG213/215 to write',
     onTag: (tag) async {
+      _log('write onTag: detecting model…');
       final model = await NtagNdefWriter.detectModel(tag);
+      _log('write onTag: model=${NtagNdefWriter.modelLabel(model)}');
       final uidHex = NtagNdefWriter.readTagUidHex(tag);
+      _log('write onTag: uid=$uidHex');
       if (uidHex == null || uidHex.isEmpty) {
         throw StateError('Failed to read tag UID');
       }
@@ -256,6 +285,7 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
 
       final protected =
           await NtagNdefWriter.isWritePasswordProtected(tag, model);
+      _log('write onTag: protected=$protected');
       if (protected) {
         needsUnlock = true;
         pendingUid = uidHex;
@@ -268,12 +298,14 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
         return;
       }
 
+      _log('write onTag: writing NDEF…');
       final result = await NtagNdefWriter.writeToTag(
         tag: tag,
         url: fullUrl,
         browserPackages: packages,
         passwordProtect: ctx.state.passwordProtect,
       );
+      _log('write onTag: DONE → $result');
       final detail =
           '$result\nUID: $uidHex\nURL: $fullUrl\nAAR: ${packages.join(',')}';
       ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(detail));

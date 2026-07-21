@@ -16,9 +16,18 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterFragmentActivity() {
     private val eventsChannel = "com.walletconnect.flutterwallet/events"
     private val methodsChannel = "com.walletconnect.flutterwallet/methods"
+    private val nfcChannel = "com.cardcoin.card_coin/nfc"
 
     private var initialLink: String? = null
     private var linksReceiver: BroadcastReceiver? = null
+
+    /**
+     * 当使用 nfc_manager 的 enableReaderMode 扫描时，必须暂停本 Activity 的
+     * enableForegroundDispatch，否则两者会并行分发同一次贴卡（reader 回调 + onNewIntent），
+     * 造成 Activity 焦点抖动并打断正在进行的 transceive/写卡。
+     * Dart 侧在 startSession 前置 true，会话结束后置 false。
+     */
+    private var suppressForegroundDispatch = false
 
 
     /** NFC action 集合，这类 intent 不应被当成 deeplink 处理 */
@@ -88,24 +97,53 @@ class MainActivity: FlutterFragmentActivity() {
                 result.notImplemented()
             }
         }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, nfcChannel).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "setForegroundDispatchEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    suppressForegroundDispatch = !enabled
+                    android.util.Log.d("NFC_DEBUG",
+                        "setForegroundDispatchEnabled=$enabled (suppress=$suppressForegroundDispatch)")
+                    val adapter = NfcAdapter.getDefaultAdapter(this)
+                    if (suppressForegroundDispatch) {
+                        adapter?.let { runCatching { it.disableForegroundDispatch(this) } }
+                    } else if (adapter != null && adapter.isEnabled) {
+                        enableNfcForegroundDispatch(adapter)
+                    }
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         android.util.Log.d("TIMING", "[configureFlutterEngine] calling super, t=${System.currentTimeMillis()-t0}ms")
         super.configureFlutterEngine(flutterEngine)
         android.util.Log.d("TIMING", "[configureFlutterEngine] super done, t=${System.currentTimeMillis()-t0}ms")
+    }
+
+    private fun enableNfcForegroundDispatch(adapter: NfcAdapter) {
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        runCatching { adapter.enableForegroundDispatch(this, pendingIntent, null, null) }
     }
 
     override fun onResume() {
         super.onResume()
         // 启用前台分发：拦截 NFC intent 优先送到本 Activity，同时抑制 MIUI/ColorOS 等 OEM 系统弹窗。
         // onNewIntent 中会对 NFC action 做 early-return，不会传给 app_links。
+        // 但当 Dart 侧正在用 enableReaderMode 扫描时（suppressForegroundDispatch=true），
+        // 必须跳过，否则会与 reader mode 冲突、并行分发同一次贴卡。
+        if (suppressForegroundDispatch) {
+            android.util.Log.d("NFC_DEBUG", "onResume: skip foreground dispatch (reader mode active)")
+            return
+        }
         val adapter = NfcAdapter.getDefaultAdapter(this)
         if (adapter != null && adapter.isEnabled) {
-            val pendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            adapter.enableForegroundDispatch(this, pendingIntent, null, null)
+            enableNfcForegroundDispatch(adapter)
         }
     }
 
