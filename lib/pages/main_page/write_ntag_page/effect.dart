@@ -39,16 +39,6 @@ Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('Cancelled'));
 }
 
-/// Stop only the nfc_manager reader session. Safe to call before starting a
-/// new session. Do NOT reset the native reader mode here — resetting right
-/// before `startSession` cancels the reader mode we are about to enable
-/// ("reader mode is not active").
-Future<void> _stopSession() async {
-  try {
-    await NfcManager.instance.stopSession();
-  } catch (_) {}
-}
-
 /// Full cleanup AFTER a session ends: stop the reader session and reset the
 /// app's native NFC reader mode. Never call this immediately before
 /// `startSession`.
@@ -117,7 +107,6 @@ Future<void> _runNfcSession({
     return;
   }
 
-  await _stopSession();
   ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(true));
 
   showModalBottomSheet(
@@ -147,6 +136,12 @@ Future<void> _runNfcSession({
     showToast('NFC timeout');
   });
 
+  // Mirror the proven check_card_page sequence: stop any stale session and
+  // start the new one back-to-back with NO awaits in between, so that
+  // nfc_manager's enableReaderMode reliably takes over the Activity's
+  // foreground dispatch (enabled in MainActivity.onResume). Do NOT call
+  // resetNfcReaderMode here — that would cancel the reader mode we enable.
+  NfcManager.instance.stopSession();
   NfcManager.instance.startSession(
     pollingOptions: {
       NfcPollingOption.iso14443,
