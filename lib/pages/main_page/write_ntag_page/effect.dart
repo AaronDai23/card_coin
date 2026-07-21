@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:card_coin/cache/local_storage.dart';
-import 'package:card_coin/custom_widget/scan_card.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
@@ -14,6 +14,8 @@ import 'package:oktoast/oktoast.dart';
 
 import 'action.dart';
 import 'state.dart';
+
+void _log(String msg) => debugPrint('NTAGWRITE: $msg');
 
 Effect<WriteNtagState>? buildEffect() {
   return combineEffects(<Object, Effect<WriteNtagState>>{
@@ -32,9 +34,6 @@ Future<void> _onDispose(Action action, Context<WriteNtagState> ctx) async {
 
 Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
   await _finishSession();
-  if (ctx.state.isScanning && Navigator.of(ctx.context).canPop()) {
-    Navigator.of(ctx.context).pop();
-  }
   ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('Cancelled'));
 }
@@ -101,36 +100,27 @@ Future<void> _runNfcSession({
   required String alertMessage,
   required Future<void> Function(NfcTag tag) onTag,
 }) async {
+  _log('runNfcSession: begin ($alertMessage)');
   final available = await NfcManager.instance.isAvailable();
+  _log('runNfcSession: isAvailable=$available');
   if (!available) {
     showToast('NFC is not available');
     return;
   }
 
+  // NOTE: Do NOT show a modal bottom sheet / dialog while the reader session
+  // is active. On EMUI/HarmonyOS, the resulting window-focus change triggers
+  // Activity onPause→onResume, and onResume re-enables foreground dispatch,
+  // which clobbers the NFC reader mode we just enabled ("reader mode is not
+  // active"). Instead we drive an in-page scanning overlay via isScanning,
+  // exactly like the working check_card_page.
   ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(true));
-
-  showModalBottomSheet(
-    context: ctx.context,
-    backgroundColor: Colors.transparent,
-    isDismissible: false,
-    enableDrag: false,
-    builder: (sheetContext) => ScanCard(
-      appLanguageResource: ctx.state.languageResource,
-      onCancel: () {
-        Navigator.of(sheetContext).pop();
-        ctx.dispatch(WriteNtagActionCreator.onCancelScan());
-      },
-    ),
-  );
 
   var handled = false;
   final timeout = Timer(const Duration(seconds: 45), () async {
     if (handled) return;
     handled = true;
     await _finishSession();
-    if (Navigator.of(ctx.context).canPop()) {
-      Navigator.of(ctx.context).pop();
-    }
     ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
     ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('Timeout: no tag'));
     showToast('NFC timeout');
@@ -142,6 +132,7 @@ Future<void> _runNfcSession({
   // foreground dispatch (enabled in MainActivity.onResume). Do NOT call
   // resetNfcReaderMode here — that would cancel the reader mode we enable.
   NfcManager.instance.stopSession();
+  _log('runNfcSession: calling startSession (enableReaderMode)');
   NfcManager.instance.startSession(
     pollingOptions: {
       NfcPollingOption.iso14443,
@@ -149,21 +140,17 @@ Future<void> _runNfcSession({
     },
     alertMessage: alertMessage,
     onDiscovered: (NfcTag tag) async {
+      _log('onDiscovered fired. keys=${tag.data.keys.toList()}');
       if (handled) return;
       handled = true;
       timeout.cancel();
       try {
         await onTag(tag);
         await _finishSession();
-        if (Navigator.of(ctx.context).canPop()) {
-          Navigator.of(ctx.context).pop();
-        }
         ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
       } catch (e) {
+        _log('onDiscovered/onTag error: $e');
         await _finishSession();
-        if (Navigator.of(ctx.context).canPop()) {
-          Navigator.of(ctx.context).pop();
-        }
         ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
         final msg = '$e';
         ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(msg));
@@ -171,6 +158,7 @@ Future<void> _runNfcSession({
       }
     },
     onError: (NfcError error) async {
+      _log('onError: type=${error.type} msg=${error.message}');
       if (handled) return;
       if (error.message.contains('Session invalidated by user')) {
         return;
@@ -178,9 +166,6 @@ Future<void> _runNfcSession({
       handled = true;
       timeout.cancel();
       await _finishSession();
-      if (Navigator.of(ctx.context).canPop()) {
-        Navigator.of(ctx.context).pop();
-      }
       ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
       final msg = 'NFC error: ${error.message}';
       ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(msg));
@@ -190,14 +175,17 @@ Future<void> _runNfcSession({
 }
 
 Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
+  _log('startWrite pressed');
   final domainUrl = ctx.state.domainUrl.trim();
   final packages = NtagNdefWriter.parseAarPackages(ctx.state.ndefAAR);
 
   if (domainUrl.isEmpty) {
+    _log('abort: domainUrl empty');
     showToast('Config not loaded');
     return;
   }
   if (packages.isEmpty) {
+    _log('abort: packages empty');
     showToast('ndefAAR is empty from server');
     return;
   }
@@ -227,7 +215,11 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      _log('confirm dialog cancelled');
+      return;
+    }
+    _log('confirm dialog accepted');
   }
 
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(

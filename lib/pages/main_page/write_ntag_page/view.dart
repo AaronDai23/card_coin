@@ -43,8 +43,10 @@ Widget buildView(
       onReload: () => dispatch(WriteNtagActionCreator.onLoadConfig()),
       onLoadSuccess: () {
         final packages = NtagNdefWriter.parseAarPackages(state.ndefAAR);
-        return SafeArea(
-          child: ListView(
+        return Stack(
+          children: [
+            SafeArea(
+              child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               const Text(
@@ -160,12 +162,65 @@ Widget buildView(
                   ),
                 ),
               ],
-            ],
-          ),
+                ],
+              ),
+            ),
+            if (state.isScanning) _ScanningOverlay(dispatch: dispatch),
+          ],
         );
       },
     ),
   );
+}
+
+class _ScanningOverlay extends StatelessWidget {
+  final Dispatch dispatch;
+
+  const _ScanningOverlay({required this.dispatch});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black54,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.nfc, color: Colors.white, size: 72),
+            const SizedBox(height: 16),
+            const Text(
+              'Hold the NTAG on the back of the phone…',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '请将标签贴在手机 NFC 区域，保持不动',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            const SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white70),
+              ),
+              onPressed: () =>
+                  dispatch(WriteNtagActionCreator.onCancelScan()),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _InfoCard extends StatelessWidget {
