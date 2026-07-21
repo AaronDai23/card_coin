@@ -311,7 +311,12 @@ class NtagNdefWriter {
     );
   }
 
-  /// True when AUTH0 enables password from user memory (factory default 0xFF = off).
+  /// True when the tag currently requires a password to write.
+  ///
+  /// NXP layout: `READ(0x30, CFG0_page)` returns 16 bytes = 4 pages
+  /// (CFG0, CFG1, PWD, PACK). AUTH0 is **byte 3 of CFG0** (NOT byte 0 — byte 0
+  /// is the MIRROR config). Factory default AUTH0 = 0xFF => protection OFF.
+  /// Protection is ON when AUTH0 points at a real page (<= last config page).
   static Future<bool> isWritePasswordProtected(
     NfcTag tag,
     NtagModel model,
@@ -321,14 +326,14 @@ class NtagNdefWriter {
     if (nfcA == null) return false;
     try {
       final pages = NtagConfigPages.forModel(model);
-      // READ (0x30) returns 16 bytes starting at page.
+      // pages.auth0 is the CFG0 page address.
       final resp = await nfcA.transceive(
         data: Uint8List.fromList([0x30, pages.auth0]),
       );
-      if (resp.isEmpty) return false;
-      final auth0 = resp[0];
-      // 0xFF = disabled. Values covering user pages (from page 4) mean protect ON.
-      return auth0 != 0xFF && auth0 <= 0xEB;
+      if (resp.length < 4) return false;
+      final auth0 = resp[3];
+      // Protected iff AUTH0 covers a real page (<= last config page = PACK).
+      return auth0 <= pages.pack;
     } catch (_) {
       return false;
     }

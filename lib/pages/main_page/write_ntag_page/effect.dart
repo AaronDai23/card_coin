@@ -50,6 +50,9 @@ Effect<WriteNtagState>? buildEffect() {
 
 Future<void> _onDispose(Action action, Context<WriteNtagState> ctx) async {
   await _finishSession();
+  // Restore normal NFC foreground dispatch only when leaving the page, so it
+  // never re-fires on a still-present tag between scans.
+  await _setNativeForegroundDispatch(true);
 }
 
 Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
@@ -68,8 +71,9 @@ Future<void> _finishSession() async {
   try {
     await BlockchainPlatform.instance.resetNfcReaderMode();
   } catch (_) {}
-  // Restore the Activity's normal NFC foreground dispatch.
-  await _setNativeForegroundDispatch(true);
+  // NOTE: do NOT re-enable foreground dispatch here. It stays disabled for the
+  // whole time we're on this page (restored in _onDispose), otherwise it would
+  // re-fire on a still-present tag between scans and background the Activity.
 }
 
 Future<void> _onLoadConfig(Action action, Context<WriteNtagState> ctx) async {
