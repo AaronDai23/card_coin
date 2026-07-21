@@ -27,11 +27,11 @@ Effect<WriteNtagState>? buildEffect() {
 }
 
 Future<void> _onDispose(Action action, Context<WriteNtagState> ctx) async {
-  await _stopSessionSafely();
+  await _finishSession();
 }
 
 Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
-  await _stopSessionSafely();
+  await _finishSession();
   if (ctx.state.isScanning && Navigator.of(ctx.context).canPop()) {
     Navigator.of(ctx.context).pop();
   }
@@ -39,7 +39,20 @@ Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('Cancelled'));
 }
 
-Future<void> _stopSessionSafely() async {
+/// Stop only the nfc_manager reader session. Safe to call before starting a
+/// new session. Do NOT reset the native reader mode here — resetting right
+/// before `startSession` cancels the reader mode we are about to enable
+/// ("reader mode is not active").
+Future<void> _stopSession() async {
+  try {
+    await NfcManager.instance.stopSession();
+  } catch (_) {}
+}
+
+/// Full cleanup AFTER a session ends: stop the reader session and reset the
+/// app's native NFC reader mode. Never call this immediately before
+/// `startSession`.
+Future<void> _finishSession() async {
   try {
     await NfcManager.instance.stopSession();
   } catch (_) {}
@@ -104,7 +117,7 @@ Future<void> _runNfcSession({
     return;
   }
 
-  await _stopSessionSafely();
+  await _stopSession();
   ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(true));
 
   showModalBottomSheet(
@@ -125,7 +138,7 @@ Future<void> _runNfcSession({
   final timeout = Timer(const Duration(seconds: 45), () async {
     if (handled) return;
     handled = true;
-    await _stopSessionSafely();
+    await _finishSession();
     if (Navigator.of(ctx.context).canPop()) {
       Navigator.of(ctx.context).pop();
     }
@@ -146,13 +159,13 @@ Future<void> _runNfcSession({
       timeout.cancel();
       try {
         await onTag(tag);
-        await _stopSessionSafely();
+        await _finishSession();
         if (Navigator.of(ctx.context).canPop()) {
           Navigator.of(ctx.context).pop();
         }
         ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
       } catch (e) {
-        await _stopSessionSafely();
+        await _finishSession();
         if (Navigator.of(ctx.context).canPop()) {
           Navigator.of(ctx.context).pop();
         }
@@ -169,7 +182,7 @@ Future<void> _runNfcSession({
       }
       handled = true;
       timeout.cancel();
-      await _stopSessionSafely();
+      await _finishSession();
       if (Navigator.of(ctx.context).canPop()) {
         Navigator.of(ctx.context).pop();
       }

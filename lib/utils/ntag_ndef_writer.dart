@@ -228,17 +228,35 @@ class NtagNdefWriter {
     );
   }
 
+  /// URI record WITHOUT prefix abbreviation (identifier byte 0x00), so the
+  /// full literal `https://...` is stored in the tag payload instead of being
+  /// compressed to the `https://` prefix code (0x04).
+  static NdefRecord createUriLiteral(String url) {
+    final full = url.trim();
+    if (full.isEmpty) {
+      throw ArgumentError('url is empty');
+    }
+    return NdefRecord(
+      typeNameFormat: NdefTypeNameFormat.nfcWellknown,
+      type: Uint8List.fromList([0x55]),
+      identifier: Uint8List.fromList([]),
+      payload: Uint8List.fromList([0x00, ...utf8.encode(full)]),
+    );
+  }
+
   static NdefMessage buildMessage({
     required String url,
     required List<String> browserPackages,
   }) {
-    final uri = Uri.parse(url.trim());
+    final normalized = url.trim();
+    final uri = Uri.parse(normalized);
     if (uri.scheme != 'http' && uri.scheme != 'https') {
       throw ArgumentError('URL must start with http:// or https://');
     }
 
     final records = <NdefRecord>[
-      NdefRecord.createUri(uri),
+      // Write the full literal URL (with https://) into the tag.
+      createUriLiteral(normalized),
     ];
     for (final pkg in browserPackages) {
       final trimmed = pkg.trim();
