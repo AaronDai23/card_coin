@@ -21,6 +21,10 @@ void _log(String msg) => debugPrint('NTAGWRITE: $msg');
 
 const MethodChannel _nfcChannel = MethodChannel('com.cardcoin.card_coin/nfc');
 
+/// Set while a scan session is running so [_onCancelScan] can resolve the
+/// in-flight [_runNfcSession] future (Android cancel does not fire onError).
+void Function()? _cancelActiveSession;
+
 /// Toggle the native Activity's NFC foreground dispatch. Must be disabled
 /// while an nfc_manager reader session is active, otherwise both fire on the
 /// same tap and disrupt the tag connection mid-write.
@@ -59,6 +63,7 @@ Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
   await _finishSession();
   ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('Cancelled'));
+  _cancelActiveSession?.call();
 }
 
 /// Full cleanup AFTER a session ends: stop the reader session and reset the
@@ -142,7 +147,22 @@ Future<void> _runNfcSession({
   // exactly like the working check_card_page.
   ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(true));
 
+  // Resolve only when this scan actually finishes (tag handled / error /
+  // timeout), so callers can await the result and run follow-up steps such as
+  // the password-unlock second pass. Without this, startSession returns
+  // immediately (before the tap) and any post-scan logic is skipped.
+  final completer = Completer<void>();
+  void done() {
+    _cancelActiveSession = null;
+    if (!completer.isCompleted) completer.complete();
+  }
+
   var handled = false;
+  _cancelActiveSession = () {
+    if (handled) return;
+    handled = true;
+    done();
+  };
   final timeout = Timer(const Duration(seconds: 45), () async {
     if (handled) return;
     handled = true;
@@ -150,11 +170,12 @@ Future<void> _runNfcSession({
     ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
     ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('Timeout: no tag'));
     showToast('NFC timeout');
+    done();
   });
 
   // Disable the native foreground dispatch BEFORE enabling reader mode, so the
   // two NFC paths don't both fire on the same tap (which churns Activity focus
-  // and breaks the tag connection mid-write). Restored in _finishSession.
+  // and breaks the tag connection mid-write). Restored on page dispose.
   await _setNativeForegroundDispatch(false);
 
   // Mirror the proven check_card_page sequence: stop any stale session and
@@ -176,32 +197,34 @@ Future<void> _runNfcSession({
       timeout.cancel();
       try {
         await onTag(tag);
-        await _finishSession();
-        ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
       } catch (e) {
         _log('onDiscovered/onTag error: $e');
-        await _finishSession();
-        ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
         final msg = '$e';
         ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(msg));
         showToast(msg);
+      } finally {
+        await _finishSession();
+        ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
+        done();
       }
     },
     onError: (NfcError error) async {
       _log('onError: type=${error.type} msg=${error.message}');
       if (handled) return;
-      if (error.message.contains('Session invalidated by user')) {
-        return;
-      }
       handled = true;
       timeout.cancel();
       await _finishSession();
       ctx.dispatch(WriteNtagActionCreator.onUpdateScanning(false));
-      final msg = 'NFC error: ${error.message}';
-      ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(msg));
-      showToast(msg);
+      if (!error.message.contains('Session invalidated by user')) {
+        final msg = 'NFC error: ${error.message}';
+        ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(msg));
+        showToast(msg);
+      }
+      done();
     },
   );
+
+  return completer.future;
 }
 
 Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
@@ -220,48 +243,15 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
     return;
   }
 
-  if (ctx.state.passwordProtect) {
-    final confirmed = await showDialog<bool>(
-      context: ctx.context,
-      builder: (context) => AlertDialog(
-        title: const Text('Password write-protect?'),
-        content: Text(
-          'After writing URL + browser AAR, the tag will require password '
-          'to write again (read/open URL stays free).\n\n'
-          'Default password (hex): ${NtagNdefWriter.defaultPasswordHex}\n'
-          'If the tag already has a password, you will be asked to unlock '
-          'it during the scan.\n'
-          'NTAG213/215 are detected automatically.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Scan & Write'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) {
-      _log('confirm dialog cancelled');
-      return;
-    }
-    _log('confirm dialog accepted');
-  }
+  // Always use the app's default password — no dialog. If the tag is already
+  // protected (by us), we auto-authenticate with this same default password in
+  // the SAME tap/session, so protected tags behave exactly like a first write.
+  final password = NtagNdefWriter.defaultPasswordBytes;
 
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(
-    'Hold NTAG… detect 213/215 → if password-protected unlock → write URL+AAR'
+    'Hold NTAG… detect 213/215 → (unlock if protected) → write URL+AAR'
     '${ctx.state.passwordProtect ? ' → password protect' : ''}',
   ));
-
-  // Pass 1: probe tag. Write immediately if not password-protected.
-  var needsUnlock = false;
-  String? pendingUid;
-  String? pendingUrl;
-  NtagModel pendingModel = NtagModel.unknown;
 
   await _runNfcSession(
     ctx: ctx,
@@ -287,19 +277,26 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
         chipModel: NtagNdefWriter.modelLabel(model),
       ));
 
-      final protected =
-          await NtagNdefWriter.isWritePasswordProtected(tag, model);
-      _log('write onTag: protected=$protected');
+      // Read raw config so we can see the real AUTH0 (byte 3 of CFG0).
+      final cfg = await NtagNdefWriter.readConfigBlock(tag, model);
+      _log('write onTag: cfg=${cfg == null ? 'null' : _hex(cfg)}');
+      final protected = NtagNdefWriter.isProtectedFromConfig(cfg, model);
+      _log('write onTag: protected=$protected '
+          '(auth0=${cfg != null && cfg.length >= 4 ? cfg[3].toRadixString(16) : '?'})');
+
+      // If protected, authenticate in the SAME session (no stop / rescan).
       if (protected) {
-        needsUnlock = true;
-        pendingUid = uidHex;
-        pendingUrl = fullUrl;
-        pendingModel = model;
-        ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(
-          '${NtagNdefWriter.modelLabel(model)} is password-protected.\n'
-          'Enter password, then hold the tag again to unlock & rewrite.',
-        ));
-        return;
+        final nfcA = NfcA.from(tag);
+        if (nfcA == null) {
+          throw StateError('NfcA required to unlock protected tag');
+        }
+        _log('write onTag: PWD_AUTH…');
+        await NtagNdefWriter.passwordAuth(
+          nfcA,
+          password: password,
+          expectedPack: null,
+        );
+        _log('write onTag: PWD_AUTH ok');
       }
 
       _log('write onTag: writing NDEF…');
@@ -308,157 +305,21 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
         url: fullUrl,
         browserPackages: packages,
         passwordProtect: ctx.state.passwordProtect,
+        alreadyAuthenticated: protected,
+        newPassword: password,
       );
       _log('write onTag: DONE → $result');
-      final detail =
-          '$result\nUID: $uidHex\nURL: $fullUrl\nAAR: ${packages.join(',')}';
-      ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(detail));
-      showToast(result);
-    },
-  );
-
-  if (!needsUnlock) return;
-
-  final entered = await _promptUnlockPassword(ctx.context);
-  if (entered == null) {
-    ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(
-      'Cancelled: password required to rewrite protected tag',
-    ));
-    return;
-  }
-
-  late final List<int> unlockPassword;
-  try {
-    unlockPassword = NtagNdefWriter.parsePasswordInput(entered);
-  } catch (e) {
-    showToast('$e');
-    ctx.dispatch(WriteNtagActionCreator.onUpdateStatus('$e'));
-    return;
-  }
-
-  ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(
-    'Password saved. Hold the same ${NtagNdefWriter.modelLabel(pendingModel)} '
-    'again to unlock and rewrite URL + AAR…',
-  ));
-
-  // Pass 2: unlock with password, then rewrite URL + packages.
-  await _runNfcSession(
-    ctx: ctx,
-    alertMessage: 'Hold tag again to unlock & write',
-    onTag: (tag) async {
-      final model = await NtagNdefWriter.detectModel(tag);
-      final uidHex = NtagNdefWriter.readTagUidHex(tag);
-      if (uidHex == null || uidHex.isEmpty) {
-        throw StateError('Failed to read tag UID');
-      }
-      if (pendingUid != null &&
-          uidHex.toUpperCase() != pendingUid!.toUpperCase()) {
-        throw StateError(
-          'Different tag (expected $pendingUid, got $uidHex). Try again.',
-        );
-      }
-
-      final fullUrl = pendingUrl ??
-          NtagNdefWriter.buildFullNdefUrl(
-            domainUrl: domainUrl,
-            uidHex: uidHex,
-          );
-
-      ctx.dispatch(WriteNtagActionCreator.onUpdateScanResult(
-        scannedUid: uidHex,
-        fullNdefUrl: fullUrl,
-        chipModel: NtagNdefWriter.modelLabel(model),
-      ));
-
-      final nfcA = NfcA.from(tag);
-      if (nfcA == null) {
-        throw StateError('NfcA required to unlock password-protected tag');
-      }
-      await NtagNdefWriter.passwordAuth(
-        nfcA,
-        password: unlockPassword,
-        expectedPack: null,
-      );
-
-      final result = await NtagNdefWriter.writeToTag(
-        tag: tag,
-        url: fullUrl,
-        browserPackages: packages,
-        passwordProtect: ctx.state.passwordProtect,
-        unlockPassword: unlockPassword,
-        alreadyAuthenticated: true,
-        newPassword: unlockPassword,
-      );
-      final detail =
-          '$result\nUnlocked + rewritten\nUID: $uidHex\nURL: $fullUrl\n'
-          'AAR: ${packages.join(',')}';
+      final detail = '$result\nUID: $uidHex\nURL: $fullUrl\n'
+          'AAR: ${packages.join(',')}'
+          '${protected ? '\nUnlocked with password before rewrite' : ''}';
       ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(detail));
       showToast(result);
     },
   );
 }
 
-/// Returns password string, or null if cancelled.
-Future<String?> _promptUnlockPassword(BuildContext context) async {
-  final controller = TextEditingController(
-    text: NtagNdefWriter.defaultPasswordHex,
-  );
-  final result = await showDialog<String>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('输入标签密码'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '该标签已开启写保护。请输入 8 位十六进制密码（或 4 位 ASCII），'
-              '确认后请再次贴卡完成解锁并重写 URL / 浏览器包名。',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                hintText: '43424E54',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (v) {
-                if (v.trim().isNotEmpty) {
-                  Navigator.of(context).pop(v.trim());
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final v = controller.text.trim();
-              if (v.isEmpty) {
-                showToast('Please enter password');
-                return;
-              }
-              Navigator.of(context).pop(v);
-            },
-            child: const Text('Unlock & Write'),
-          ),
-        ],
-      );
-    },
-  );
-  controller.dispose();
-  return result;
-}
+String _hex(List<int> bytes) =>
+    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
 
 Future<void> _onStartDecode(Action action, Context<WriteNtagState> ctx) async {
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(

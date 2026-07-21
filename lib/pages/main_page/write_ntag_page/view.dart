@@ -165,7 +165,12 @@ Widget buildView(
                 ],
               ),
             ),
-            if (state.isScanning) _ScanningOverlay(dispatch: dispatch),
+            if (state.isScanning)
+              _ScanningOverlay(
+                dispatch: dispatch,
+                title: 'Scanning NFC',
+                message: '请将标签贴近手机 NFC 感应区，保持不动',
+              ),
           ],
         );
       },
@@ -173,51 +178,113 @@ Widget buildView(
   );
 }
 
+/// In-page overlay that mimics the app's native NFC BottomSheetDialog
+/// (📲 icon + bold title + gray subtitle + indeterminate progress + cancel).
+/// Rendered inside the page's Stack (NOT a route/dialog) so it doesn't cause a
+/// window-focus change that would tear down the NFC reader mode.
 class _ScanningOverlay extends StatelessWidget {
   final Dispatch dispatch;
+  final String title;
+  final String message;
 
-  const _ScanningOverlay({required this.dispatch});
+  const _ScanningOverlay({
+    required this.dispatch,
+    required this.title,
+    required this.message,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final sheetHeight = MediaQuery.of(context).size.height * 0.5;
     return Positioned.fill(
-      child: Container(
-        color: Colors.black54,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.nfc, color: Colors.white, size: 72),
-            const SizedBox(height: 16),
-            const Text(
-              'Hold the NTAG on the back of the phone…',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '请将标签贴在手机 NFC 区域，保持不动',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
-            const SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white70),
+      child: Stack(
+        children: [
+          const ModalBarrier(color: Colors.black54, dismissible: false),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              height: sheetHeight,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 16,
+                    offset: Offset(0, -4),
+                  ),
+                ],
               ),
-              onPressed: () =>
-                  dispatch(WriteNtagActionCreator.onCancelScan()),
-              child: const Text('Cancel'),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                  child: Column(
+                    children: [
+                      // drag handle
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('📲', style: TextStyle(fontSize: 56)),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16, bottom: 8),
+                              child: Text(
+                                title,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              message,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF888888),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            const SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () => dispatch(
+                              WriteNtagActionCreator.onCancelScan()),
+                          child: const Text(
+                            '取消',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

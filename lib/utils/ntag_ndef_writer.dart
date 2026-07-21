@@ -311,32 +311,42 @@ class NtagNdefWriter {
     );
   }
 
+  /// Read the raw config block via `READ(0x30, CFG0_page)` → 16 bytes =
+  /// 4 pages [CFG0, CFG1, PWD, PACK]. Returns null on failure.
+  static Future<Uint8List?> readConfigBlock(
+    NfcTag tag,
+    NtagModel model,
+  ) async {
+    if (model == NtagModel.unknown) return null;
+    final nfcA = NfcA.from(tag);
+    if (nfcA == null) return null;
+    try {
+      final pages = NtagConfigPages.forModel(model);
+      final resp = await nfcA.transceive(
+        data: Uint8List.fromList([0x30, pages.auth0]),
+      );
+      return resp;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Decide protection from a config block. AUTH0 is **byte 3 of CFG0**
+  /// (byte 0 is MIRROR). Factory default AUTH0 = 0xFF => protection OFF.
+  /// Protected iff AUTH0 points at a real page (<= last config page = PACK).
+  static bool isProtectedFromConfig(Uint8List? cfg, NtagModel model) {
+    if (cfg == null || cfg.length < 4) return false;
+    final auth0 = cfg[3];
+    return auth0 <= NtagConfigPages.forModel(model).pack;
+  }
+
   /// True when the tag currently requires a password to write.
-  ///
-  /// NXP layout: `READ(0x30, CFG0_page)` returns 16 bytes = 4 pages
-  /// (CFG0, CFG1, PWD, PACK). AUTH0 is **byte 3 of CFG0** (NOT byte 0 — byte 0
-  /// is the MIRROR config). Factory default AUTH0 = 0xFF => protection OFF.
-  /// Protection is ON when AUTH0 points at a real page (<= last config page).
   static Future<bool> isWritePasswordProtected(
     NfcTag tag,
     NtagModel model,
   ) async {
-    if (model == NtagModel.unknown) return false;
-    final nfcA = NfcA.from(tag);
-    if (nfcA == null) return false;
-    try {
-      final pages = NtagConfigPages.forModel(model);
-      // pages.auth0 is the CFG0 page address.
-      final resp = await nfcA.transceive(
-        data: Uint8List.fromList([0x30, pages.auth0]),
-      );
-      if (resp.length < 4) return false;
-      final auth0 = resp[3];
-      // Protected iff AUTH0 covers a real page (<= last config page = PACK).
-      return auth0 <= pages.pack;
-    } catch (_) {
-      return false;
-    }
+    final cfg = await readConfigBlock(tag, model);
+    return isProtectedFromConfig(cfg, model);
   }
 
   /// Authenticate with PWD (needed before rewrite when write-protect is on).
