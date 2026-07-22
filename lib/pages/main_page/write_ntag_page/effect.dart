@@ -54,9 +54,6 @@ Effect<WriteNtagState>? buildEffect() {
 
 Future<void> _onDispose(Action action, Context<WriteNtagState> ctx) async {
   await _finishSession();
-  // Restore normal NFC foreground dispatch only when leaving the page, so it
-  // never re-fires on a still-present tag between scans.
-  await _setNativeForegroundDispatch(true);
 }
 
 Future<void> _onCancelScan(Action action, Context<WriteNtagState> ctx) async {
@@ -73,12 +70,14 @@ Future<void> _finishSession() async {
   try {
     await NfcManager.instance.stopSession();
   } catch (_) {}
+  // Re-enable Activity foreground dispatch ASAP after reader mode stops.
+  // While both are off, Android's default NDEF dispatch sees the still-present
+  // tag (URL + browser AAR) and launches Chrome/Huawei Browser. With FD on,
+  // MainActivity.onNewIntent swallows the NFC intent instead.
+  await _setNativeForegroundDispatch(true);
   try {
     await BlockchainPlatform.instance.resetNfcReaderMode();
   } catch (_) {}
-  // NOTE: do NOT re-enable foreground dispatch here. It stays disabled for the
-  // whole time we're on this page (restored in _onDispose), otherwise it would
-  // re-fire on a still-present tag between scans and background the Activity.
 }
 
 Future<void> _onLoadConfig(Action action, Context<WriteNtagState> ctx) async {
