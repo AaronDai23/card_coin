@@ -1140,16 +1140,31 @@ class AppLanguageResource {
   String get tryScan =>
       notNullString(_messages['client.tryScan'], 'Try scan now');
 
-  String getCheckTotalFailTip(String number) {
+  String getCheckTotalFailTip({required int total, required String failCount}) {
+    final raw = _messages['client.getCheckFailTotal'];
+    // Prefer "{0}=total, {1}=failed". Legacy templates hardcode "21" + "{0}=failed".
+    if (raw != null && raw.contains('{1}')) {
+      return textWithArgument(raw, [total.toString(), failCount]);
+    }
+    if (raw != null && raw.contains('21')) {
+      return textWithArgument(
+          raw.replaceFirst('21', '$total'), [failCount]);
+    }
     return textWithArgument(
-        _messages['client.getCheckFailTotal'] ??
-            'Total 21 items in Health check, failed {0}',
-        [number]);
+        'Total {0} items in Health check, failed {1}',
+        [total.toString(), failCount]);
   }
 
-  String get getCheckTotalTip => notNullString(
-      _messages['client.getCheckTotalTip'], 'Total 21 items in Health check!');
-
+  String getCheckTotalTip(int total) {
+    final raw = _messages['client.getCheckTotalTip'];
+    if (raw != null && raw.contains('{0}')) {
+      return textWithArgument(raw, [total.toString()]);
+    }
+    if (raw != null && raw.contains('21')) {
+      return raw.replaceFirst('21', '$total');
+    }
+    return 'Total $total items in Health check!';
+  }
   String get checking =>
       notNullString(_messages['client.checking'], 'Checking...');
 

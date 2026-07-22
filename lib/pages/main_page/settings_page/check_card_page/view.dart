@@ -118,8 +118,9 @@ Widget buildView(
           ),
           Text(
             failCount > 0
-                ? languageResource.getCheckTotalFailTip("$failCount")
-                : languageResource.getCheckTotalTip,
+                ? languageResource.getCheckTotalFailTip(
+                    total: totalCount, failCount: "$failCount")
+                : languageResource.getCheckTotalTip(totalCount),
             style: const TextStyle(color: Colors.red),
           ),
           const SizedBox(
