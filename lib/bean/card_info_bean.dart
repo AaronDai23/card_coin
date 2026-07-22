@@ -138,6 +138,8 @@ class SmartCardDetail {
   String? customerSmartCardId;
   bool? available;
   String? category;
+  /// Chip family from smartCard/detail: `CPU` (IsoDep applet) or `NTAG`.
+  String? cardTech;
   String? usdtBalance;
   MerchantInfo? merchant;
   InvestmentInfo? investment;
@@ -176,6 +178,7 @@ class SmartCardDetail {
       this.uid,
       this.customerSmartCardId,
       this.category,
+      this.cardTech,
       this.investment,
       this.investmentGuide,
       this.investmentInterval,
@@ -213,6 +216,7 @@ class SmartCardDetail {
         uid: uid,
         customerSmartCardId: customerSmartCardId,
         category: category,
+        cardTech: cardTech,
         investment: investment,
         investmentGuide: investmentGuide,
         investmentInterval: investmentInterval,
@@ -251,6 +255,7 @@ class SmartCardDetail {
     uid = json['uid'];
     held = json['held'];
     category = json['category'];
+    cardTech = json['cardTech']?.toString();
     usdtBalance = json['usdtBalance'];
     merchant = json['merchant'] != null
         ? MerchantInfo.fromJson(json['merchant'])
@@ -322,6 +327,7 @@ class SmartCardDetail {
     data['uid'] = uid;
     data['held'] = held;
     data['category'] = category;
+    data['cardTech'] = cardTech;
     data['usdtBalance'] = usdtBalance;
     data['customerSmartCardId'] = customerSmartCardId;
     if (shape != null) {
