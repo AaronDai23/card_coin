@@ -89,7 +89,7 @@ Widget buildView(
               _InfoCard(
                 title: 'Full NDEF URL',
                 value: state.fullNdefUrl.isEmpty
-                    ? 'domain + uid=/Base64(UID)'
+                    ? 'domain + uid=Base64(UID)'
                     : state.fullNdefUrl,
               ),
               const SizedBox(height: 12),

@@ -158,10 +158,10 @@ class NtagNdefWriter {
     if (normalized.isEmpty) {
       throw ArgumentError('uid is empty');
     }
-    return '/${base64Encode(utf8.encode(normalized.toUpperCase()))}';
+    return base64Encode(utf8.encode(normalized.toUpperCase()));
   }
 
-  /// Decode `uid=/BASE64` or `uid=BASE64` from a full NDEF URL back to hex.
+  /// Decode `uid=BASE64` (also accepts legacy `uid=/BASE64`) from a full NDEF URL.
   static String? decodeUidFromUrl(String url) {
     try {
       final uri = Uri.parse(url);
@@ -189,9 +189,10 @@ class NtagNdefWriter {
 
     final uidValue = encodeUidParam(uidHex);
 
+    // Template may end with `uid=` or legacy `uid=/` — normalize to `uid=` + BASE64.
     if (RegExp(r'[?&]uid=/?$').hasMatch(base)) {
       if (base.endsWith('uid=/')) {
-        return '$base${uidValue.substring(1)}';
+        return '${base.substring(0, base.length - 1)}$uidValue';
       }
       return '$base$uidValue';
     }
