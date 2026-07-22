@@ -17,7 +17,6 @@ import 'package:card_coin/custom_widget/progress_dialog/progress_dialog.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
 import 'package:card_coin/utils/date_util.dart';
 import 'package:card_coin/utils/number_util.dart';
-import 'package:card_coin/utils/ntag_home_scan.dart';
 import 'package:card_coin/utils/scan_util.dart';
 import 'package:card_coin/utils/startup_time.dart';
 import 'package:chipcore_sdk/src/demo/utils/scan_util.dart' as chip_scan;
@@ -695,7 +694,22 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   String? cardUuid = await LocalStorage.getCardUuid();
   print("_onScanCardClick-cardUuid:$cardUuid");
 
-  final scanResponse = await _scanHomeCard(ctx);
+  // Single ChipCore dialog: SDK detects NTAG vs CPU and writes accordingly.
+  final chipResp = await chip_scan.ScanUtil.scanOnly(
+    checkLock: true,
+    needSyncUid: true,
+    ndefLink: ctx.state.domainUrl,
+    ndefAar: ctx.state.ndefAAR,
+  );
+  final scanResponse = ScanResponse(
+    chipResp.isSuccess,
+    isActivated: chipResp.data?.isActivated,
+    resetCount: chipResp.data?.resetCount,
+    data: chipResp.data?.cardId,
+    message: chipResp.message,
+    sw1: chipResp.sw1,
+    sw2: chipResp.sw2,
+  );
   // final scanResponse = await ScanUtil.scanCard(ctx.context, runnable: GetPrivateKeyRunnable());
   // final scanResponse = await ScanUtil.scanCard(ctx.context, runnable: GetDerivePrivateKeyRunnable('8000002C8000003C800000000000000000000000'));
   if (scanResponse.isSuccess) {
@@ -772,116 +786,6 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
     ctx.dispatch(
         MyCardActionCreator.onLoadSuccess(cardDetail: ctx.state.cardDetail));
   }
-}
-
-/// Home scan: route by [SmartCardDetail.cardTech] (`NTAG` / `CPU`).
-/// After a successful write, callers always load smartCard/detail the same way.
-Future<ScanResponse<String>> _scanHomeCard(Context<MyCardState> ctx) async {
-  final tech = (ctx.state.cardDetail?.cardTech ?? '').trim().toUpperCase();
-  print('_scanHomeCard cardTech=$tech');
-
-  if (tech == 'NTAG') {
-    final ntag = await _scanNtagHome(ctx, requireNtag: true);
-    if (ntag.isSuccess || _isScanCancelled(ntag)) return ntag;
-    // Wrong chip presented — fall back to CPU once.
-    if (_isNotNtagResult(ntag)) {
-      print('_scanHomeCard NTAG path got non-NTAG, fallback CPU');
-      return _scanCpuHome(ctx);
-    }
-    return ntag;
-  }
-
-  if (tech == 'CPU') {
-    final cpu = await _scanCpuHome(ctx);
-    if (cpu.isSuccess || _isScanCancelled(cpu)) return cpu;
-    // NTAG held against CPU path → ChipCore returns tag-unsupported.
-    if (_isTagUnsupported(cpu)) {
-      print('_scanHomeCard CPU path tag-unsupported, fallback NTAG');
-      return _scanNtagHome(ctx, requireNtag: true);
-    }
-    return cpu;
-  }
-
-  // Unknown (first scan / no detail yet): probe NTAG first; if not NTAG, CPU.
-  final probe = await _scanNtagHome(ctx, requireNtag: false);
-  if (probe.isSuccess || _isScanCancelled(probe)) return probe;
-  if (_isNotNtagResult(probe)) {
-    print('_scanHomeCard probe not NTAG → CPU ChipCore');
-    return _scanCpuHome(ctx);
-  }
-  return probe;
-}
-
-bool _isScanCancelled(ScanResponse<String> resp) {
-  final msg = resp.message ?? '';
-  return msg == 'Session invalidated by user' || msg == '用户已取消';
-}
-
-bool _isNotNtagResult(ScanResponse<String> resp) {
-  final msg = (resp.message ?? '').toLowerCase();
-  return msg.contains('not an ntag') ||
-      msg.contains('unsupported tag') ||
-      msg.contains('expected ntag');
-}
-
-bool _isTagUnsupported(ScanResponse<String> resp) {
-  final msg = (resp.message ?? '').toLowerCase();
-  return msg.contains('tag-unsupported') ||
-      msg.contains('iso-dep') ||
-      msg.contains('iso 7816') ||
-      msg.contains('tag does not support');
-}
-
-Future<ScanResponse<String>> _scanCpuHome(Context<MyCardState> ctx) async {
-  final chipResp = await chip_scan.ScanUtil.scanOnly(
-    checkLock: true,
-    needSyncUid: true,
-    ndefLink: ctx.state.domainUrl,
-    ndefAar: ctx.state.ndefAAR,
-  );
-  return ScanResponse(
-    chipResp.isSuccess,
-    isActivated: chipResp.data?.isActivated,
-    resetCount: chipResp.data?.resetCount,
-    data: chipResp.data?.cardId,
-    message: chipResp.message,
-    sw1: chipResp.sw1,
-    sw2: chipResp.sw2,
-  );
-}
-
-Future<ScanResponse<String>> _scanNtagHome(
-  Context<MyCardState> ctx, {
-  required bool requireNtag,
-}) async {
-  final result = await NtagHomeScan.scanAndWrite(
-    context: ctx.context,
-    domainUrl: ctx.state.domainUrl ?? '',
-    ndefAar: ctx.state.ndefAAR ?? '',
-    passwordProtect: true,
-    requireNtag: requireNtag,
-  );
-  if (result.isSuccess) {
-    // NTAG has no applet activation flags; detail API drives activation UI.
-    return ScanResponse(
-      true,
-      isActivated: true,
-      resetCount: 0,
-      data: result.uidHex,
-      message: result.message,
-    );
-  }
-  if (result.isCancelled) {
-    return ScanResponse(false, message: 'Session invalidated by user');
-  }
-  if (result.isNotNtag) {
-    return const ScanResponse(false, message: 'Not an NTAG');
-  }
-  return ScanResponse(
-    false,
-    data: result.uidHex,
-    message: result.message ?? 'NTAG write failed',
-  );
 }
 
 void _resetDataWithCardId(

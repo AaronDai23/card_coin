@@ -133,11 +133,11 @@ dependencies:
   app_links: ^3.4.0  # 推荐使用最新稳定版本
 
   chipcore_sdk:
-    # path: '../chipcore_sdk'     #
-    git:
-      url: https://github.com/AaronDai23/chipcore_sdk.git
-      # ref: v1.0.0   #
-      ref: main
+    path: '../chipcore_sdk'     #
+    # git:
+    #   url: https://github.com/AaronDai23/chipcore_sdk.git
+    #   # ref: v1.0.0   #
+    #   ref: main
   opentelemetry: ^0.18.10
 
 
