@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:card_coin/bean/health_check_bean.dart';
+import 'package:card_coin/global_store/states/app_language_resource.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:card_coin/managers/isodep_reader_manager.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
+import 'package:card_coin/utils/ntag_ndef_writer.dart';
 import 'package:card_coin/utils/string_util.dart';
 import 'package:card_coin/widget/custom_alert_dialog.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -30,9 +32,8 @@ Future<void> _onDispose(Action action, Context<CheckCardState> ctx) async {
   BlockchainPlatform.instance.resetNfcReaderMode();
 }
 
-void _onInit(Action action, Context<CheckCardState> ctx) async {
-  var languageResource = ctx.state.languageResource!;
-  List<HealthCheckInfo> checkList = [
+List<HealthCheckInfo> _cpuCheckList(AppLanguageResource languageResource) {
+  return [
     HealthCheckInfo(
         name: languageResource.ndefPrefixSet, type: HealthCheckType.ndefPrefix),
     HealthCheckInfo(
@@ -84,10 +85,31 @@ void _onInit(Action action, Context<CheckCardState> ctx) async {
         name: languageResource.ndefTapTimes,
         type: HealthCheckType.ndefTapTimes),
   ];
-  ctx.dispatch(CheckCardActionCreator.onInitTask(checkList));
+}
+
+/// NTAG health check: UID + NDEF URL + write-password lock only.
+List<HealthCheckInfo> _ntagCheckList(AppLanguageResource languageResource) {
+  return [
+    HealthCheckInfo(name: 'UID', type: HealthCheckType.uid),
+    HealthCheckInfo(
+        name: languageResource.ndefPrefixSet, type: HealthCheckType.ndefPrefix),
+    HealthCheckInfo(
+        name: languageResource.cardLock, type: HealthCheckType.cardLock),
+  ];
+}
+
+void _onInit(Action action, Context<CheckCardState> ctx) async {
+  var languageResource = ctx.state.languageResource!;
+  ctx.state.cardTech = 'CPU';
+  ctx.dispatch(
+      CheckCardActionCreator.onInitTask(_cpuCheckList(languageResource)));
 }
 
 Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
+  // Reset to CPU checklist while waiting; swapped to NTAG (3 items) on detect.
+  ctx.state.cardTech = 'CPU';
+  ctx.dispatch(CheckCardActionCreator.onInitTask(
+      _cpuCheckList(ctx.state.languageResource!)));
   ctx.dispatch(CheckCardActionCreator.onUpdateShowScan(true));
 
   NfcManager.instance.stopSession();
@@ -162,7 +184,27 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
         }
       }
 
+      // NTAG: no IsoDep → detect via GET_VERSION, only check uid / URL / lock.
+      if (isoDepAndroid == null && isoDepIos == null) {
+        final model = await NtagNdefWriter.detectModel(tag);
+        if (model != NtagModel.unknown) {
+          await _runNtagHealthCheck(ctx, tag, model);
+          ctx.state.timer?.cancel();
+          NfcManager.instance.stopSession();
+          await BlockchainPlatform.instance.resetNfcReaderMode();
+          return;
+        }
+      }
+
       if (isoDepAndroid != null || isoDepIos != null) {
+        // Restore full CPU checklist if previous scan was NTAG (3 items).
+        if (ctx.state.cardTech == 'NTAG' || ctx.state.checkList.length <= 3) {
+          ctx.state.cardTech = 'CPU';
+          ctx.dispatch(CheckCardActionCreator.onInitTask(
+              _cpuCheckList(ctx.state.languageResource!)));
+        } else {
+          ctx.state.cardTech = 'CPU';
+        }
         final readerManager = Platform.isAndroid
             ? IsoDepReaderManager(isoDepAndroid)
             : IsoDepReaderManager(null, ios7816Dep: isoDepIos);
@@ -526,6 +568,7 @@ Future<void> _onUpload(Action action, Context<CheckCardState> ctx) async {
   Map requests = {};
   String cardId = action.payload;
   requests['uid'] = cardId;
+  requests['cardTech'] = ctx.state.cardTech;
   for (HealthCheckInfo element in ctx.state.checkList) {
     requests[element.type.name] = element.value;
   }
@@ -536,6 +579,65 @@ Future<void> _onUpload(Action action, Context<CheckCardState> ctx) async {
     print('upload success');
   } else {
     print('upload failed');
+  }
+}
+
+/// NTAG-only path: UID + NDEF URL + password write-protect.
+Future<void> _runNtagHealthCheck(
+  Context<CheckCardState> ctx,
+  NfcTag tag,
+  NtagModel model,
+) async {
+  final languageResource = ctx.state.languageResource!;
+  ctx.state.cardTech = 'NTAG';
+  var list = _ntagCheckList(languageResource)
+      .map((e) => e.copyWith(status: HealthStatus.process))
+      .toList();
+  ctx.dispatch(CheckCardActionCreator.onInitTask(list));
+
+  String uidHex = '';
+  String? ndefUrl;
+  bool locked = false;
+
+  try {
+    uidHex = NtagNdefWriter.readTagUidHex(tag) ?? '';
+    final decoded = await NtagNdefWriter.decodeTag(tag);
+    ndefUrl = decoded.url;
+    // Prefer decoded uid if present; keep hex uppercase without spaces for upload.
+    if (uidHex.isEmpty && decoded.uidHex.isNotEmpty) {
+      uidHex = decoded.uidHex;
+    }
+    locked = await NtagNdefWriter.isWritePasswordProtected(tag, model);
+  } catch (e) {
+    print('NTAG health check error: $e');
+  }
+
+  list = list.toList();
+  for (var i = 0; i < list.length; i++) {
+    final item = list[i];
+    if (item.type == HealthCheckType.uid) {
+      list[i] = item.copyWith(
+        status: uidHex.isEmpty ? HealthStatus.failed : HealthStatus.health,
+        result: uidHex.isEmpty ? 'Empty' : uidHex.toUpperCase(),
+      );
+    } else if (item.type == HealthCheckType.ndefPrefix) {
+      final url = (ndefUrl ?? '').trim();
+      list[i] = item.copyWith(
+        status: url.isEmpty ? HealthStatus.unHealth : HealthStatus.health,
+        result: url.isEmpty ? 'Empty' : url,
+      );
+    } else if (item.type == HealthCheckType.cardLock) {
+      list[i] = item.copyWith(
+        status: HealthStatus.health,
+        result: locked ? 'Yes' : 'No',
+      );
+    }
+  }
+  ctx.dispatch(CheckCardActionCreator.onUpdateCheckInfoList(list));
+
+  final cardId = uidHex.replaceAll(' ', '').toUpperCase();
+  if (cardId.isNotEmpty) {
+    ctx.dispatch(CheckCardActionCreator.onUploadAction(cardId));
   }
 }
 

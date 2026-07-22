@@ -13,7 +13,7 @@ Widget buildView(
     CheckCardState state, Dispatch dispatch, ViewService viewService) {
   int count = 0;
   int failCount = 0;
-  int totalCount = 21;
+  int totalCount = state.checkList.isEmpty ? 21 : state.checkList.length;
   int docount = 0;
 
   for (var element in state.checkList) {
