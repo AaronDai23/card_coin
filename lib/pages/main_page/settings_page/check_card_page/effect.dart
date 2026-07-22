@@ -87,10 +87,12 @@ List<HealthCheckInfo> _cpuCheckList(AppLanguageResource languageResource) {
   ];
 }
 
-/// NTAG health check: UID + NDEF URL + write-password lock only.
+/// NTAG health check: UID + serial number + NDEF URL + write-password lock.
 List<HealthCheckInfo> _ntagCheckList(AppLanguageResource languageResource) {
   return [
     HealthCheckInfo(name: 'UID', type: HealthCheckType.uid),
+    HealthCheckInfo(
+        name: languageResource.cardNumber, type: HealthCheckType.cardNumber),
     HealthCheckInfo(
         name: languageResource.ndefPrefixSet, type: HealthCheckType.ndefPrefix),
     HealthCheckInfo(
@@ -106,7 +108,7 @@ void _onInit(Action action, Context<CheckCardState> ctx) async {
 }
 
 Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
-  // Reset to CPU checklist while waiting; swapped to NTAG (3 items) on detect.
+  // Reset to CPU checklist while waiting; swapped to NTAG items on detect.
   ctx.state.cardTech = 'CPU';
   ctx.dispatch(CheckCardActionCreator.onInitTask(
       _cpuCheckList(ctx.state.languageResource!)));
@@ -184,7 +186,7 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
         }
       }
 
-      // NTAG: no IsoDep → detect via GET_VERSION, only check uid / URL / lock.
+      // NTAG: no IsoDep → detect via GET_VERSION; check uid / SN / URL / lock.
       if (isoDepAndroid == null && isoDepIos == null) {
         final model = await NtagNdefWriter.detectModel(tag);
         if (model != NtagModel.unknown) {
@@ -197,8 +199,9 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
       }
 
       if (isoDepAndroid != null || isoDepIos != null) {
-        // Restore full CPU checklist if previous scan was NTAG (3 items).
-        if (ctx.state.cardTech == 'NTAG' || ctx.state.checkList.length <= 3) {
+        // Restore full CPU checklist if previous scan was NTAG.
+        if (ctx.state.cardTech == 'NTAG' ||
+            ctx.state.checkList.any((e) => e.type == HealthCheckType.uid)) {
           ctx.state.cardTech = 'CPU';
           ctx.dispatch(CheckCardActionCreator.onInitTask(
               _cpuCheckList(ctx.state.languageResource!)));
@@ -582,7 +585,7 @@ Future<void> _onUpload(Action action, Context<CheckCardState> ctx) async {
   }
 }
 
-/// NTAG-only path: UID + NDEF URL + password write-protect.
+/// NTAG-only path: UID + serial number + NDEF URL + password write-protect.
 Future<void> _runNtagHealthCheck(
   Context<CheckCardState> ctx,
   NfcTag tag,
@@ -612,6 +615,32 @@ Future<void> _runNtagHealthCheck(
     print('NTAG health check error: $e');
   }
 
+  final cardId = uidHex.replaceAll(' ', '').toUpperCase();
+  HealthStatus cardNumberStatus = HealthStatus.failed;
+  String cardNumberResult = 'No';
+  if (cardId.isNotEmpty) {
+    try {
+      final result = await HttpManager.getInstance().post(
+        NetworkAddress.getCardNumber,
+        null,
+        data: {'uid': cardId},
+        noTip: true,
+        cancelToken: ctx.state.canceler.newToken(),
+      );
+      if (result.isSuccess) {
+        if (result.data != null && result.data != '') {
+          cardNumberStatus = HealthStatus.health;
+          cardNumberResult = result.data.toString();
+        } else {
+          cardNumberStatus = HealthStatus.unHealth;
+          cardNumberResult = languageResource.empty;
+        }
+      }
+    } catch (e) {
+      print('NTAG getCardNumber error: $e');
+    }
+  }
+
   list = list.toList();
   for (var i = 0; i < list.length; i++) {
     final item = list[i];
@@ -619,6 +648,11 @@ Future<void> _runNtagHealthCheck(
       list[i] = item.copyWith(
         status: uidHex.isEmpty ? HealthStatus.failed : HealthStatus.health,
         result: uidHex.isEmpty ? 'Empty' : uidHex.toUpperCase(),
+      );
+    } else if (item.type == HealthCheckType.cardNumber) {
+      list[i] = item.copyWith(
+        status: cardNumberStatus,
+        result: cardNumberResult,
       );
     } else if (item.type == HealthCheckType.ndefPrefix) {
       final url = (ndefUrl ?? '').trim();
@@ -635,7 +669,6 @@ Future<void> _runNtagHealthCheck(
   }
   ctx.dispatch(CheckCardActionCreator.onUpdateCheckInfoList(list));
 
-  final cardId = uidHex.replaceAll(' ', '').toUpperCase();
   if (cardId.isNotEmpty) {
     ctx.dispatch(CheckCardActionCreator.onUploadAction(cardId));
   }
