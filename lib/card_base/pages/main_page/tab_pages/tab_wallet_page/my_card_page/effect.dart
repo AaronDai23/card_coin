@@ -297,6 +297,8 @@ Future<void> _restoreMyCardAfterInactivePrompt(
     return;
   }
   ctx.state.pageConfig = PageFieldConfigInfo();
+  // 空默认页应为白底；扫卡拉详情时已广播过浅蓝，这里还原。
+  ctx.broadcast(MyCardActionCreator.onChangeBgcolorInReTap(true));
   ctx.dispatch(MyCardActionCreator.onLoadSuccess());
 }
 
