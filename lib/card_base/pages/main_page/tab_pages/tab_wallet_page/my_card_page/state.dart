@@ -15,6 +15,8 @@ import '../../../../../../widget/base_page_loading.dart';
 
 class MyCardState extends LoadPageState<MyCardState> {
   SmartCardDetail? cardDetail;
+  /// 扫卡/刷新清空前的卡片，用于未激活弹窗取消后还原页面。
+  SmartCardDetail? cardDetailBeforeScan;
 
   List<SalesData> lineDatas = [];
   FiatInfo currentFiat = FiatInfo(
@@ -80,6 +82,7 @@ class MyCardState extends LoadPageState<MyCardState> {
     return MyCardState()
       ..errorMsg = errorMsg
       ..cardDetail = cardDetail
+      ..cardDetailBeforeScan = cardDetailBeforeScan
       ..domainUrl = domainUrl
       ..languageLocale = languageLocale
       ..languageResource = languageResource
