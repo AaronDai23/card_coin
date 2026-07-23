@@ -131,12 +131,12 @@ Widget buildView(
             ),
       title: Text(languageResource.settings),
       actions: [
-        TextButton(
-            onPressed: () => dispatch(SettingsActionCreator.onWriteNtag()),
-            child: const Text(
-              'NTAG',
-              style: TextStyle(color: Colors.white),
-            )),
+        // TextButton(
+        //     onPressed: () => dispatch(SettingsActionCreator.onWriteNtag()),
+        //     child: const Text(
+        //       'NTAG',
+        //       style: TextStyle(color: Colors.white),
+        //     )),
         TextButton(
             onPressed: () => dispatch(SettingsActionCreator.onNetworkCheck()),
             child: Text(

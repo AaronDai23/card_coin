@@ -12,10 +12,11 @@ import 'app.dart';
 /// flutter run --flavor card_coin_pro -t lib/main_pro.dart
 ///打包
 /// flutter build apk --flavor card_coin_pro -t lib/main_pro.dart --release
+/// flutter build appbundle --flavor card_coin_pro -t lib/main_pro.dart
 
 Future<void> main() async {
   var configuredApp = AppConfig(
-    appDisplayName: "Chipbase",
+    appDisplayName: "ChipBase",
     appInternalId: AppType.bestWish,
     stringResource: StringResourceMainPro(),
     child: const MyApp(),

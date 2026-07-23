@@ -64,10 +64,10 @@ android {
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         multiDexEnabled true
         minSdkVersion 24
-        targetSdkVersion 35
+        targetSdkVersion 36
 
         versionCode 296
-        versionName '2.1.9'
+        versionName '2.2.2'
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
             //, 'x86', 'armeabi-v7a', 'x86_64', 'arm64-v8a’
@@ -89,7 +89,7 @@ android {
 
         card_coin_pro {
             dimension "app"
-            versionCode 296
+            versionCode 300
             applicationId "com.cardcoin.bestwish"
 
         }
