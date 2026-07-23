@@ -28,6 +28,7 @@ MyCardState _onLoadSuccess(MyCardState state, Action action) {
       state.loadStatus != LoadType.loadSuccess || nextUid != currentUid;
   final MyCardState newState = state.clone()
     ..cardDetail = action.payload
+    ..cardDetailBeforeScan = null
     ..hasReportedPrimaryContentVisible = shouldResetPrimaryVisible
         ? false
         : state.hasReportedPrimaryContentVisible
@@ -51,6 +52,7 @@ MyCardState _onShowLoading(MyCardState state, Action action) {
 
 MyCardState _onClearCardDetail(MyCardState state, Action action) {
   final MyCardState newState = state.clone()
+    ..cardDetailBeforeScan = state.cardDetailBeforeScan ?? state.cardDetail
     ..cardDetail = null
     ..hasReportedPrimaryContentVisible = false
     ..loadStatus = LoadType.loading;

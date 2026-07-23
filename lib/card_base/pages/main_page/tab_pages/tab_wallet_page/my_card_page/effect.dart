@@ -224,8 +224,8 @@ Future<void> _onLoadCardInfo(Action action, Context<MyCardState> ctx) async {
           Navigator.of(ctx.context).pushNamed('activateDetailPage',
               arguments: {'uuid': cardDetail.uid});
         }
-        // 取消/离开弹窗后需退出骨屏；未激活卡不会写入本地 uuid。
-        await _restoreMyCardAfterInactivePrompt(ctx, cardId);
+        // 取消/离开弹窗后还原扫卡前页面（默认空页或原卡片页）。
+        await _restoreMyCardAfterInactivePrompt(action, ctx);
         return;
       }
 
@@ -284,16 +284,18 @@ Future<void> _onLoadCardInfo(Action action, Context<MyCardState> ctx) async {
   }
 }
 
-/// 未激活提示关闭后退出骨屏：有上一张已绑定卡则拉回，否则回到空默认页。
+/// 未激活提示关闭后：还原到扫卡/刷新前的页面（空默认页或已加载的卡片页）。
 Future<void> _restoreMyCardAfterInactivePrompt(
+  Action action,
   Context<MyCardState> ctx,
-  String scannedCardId,
 ) async {
-  final previousUuid = await LocalStorage.getCardUuid();
-  if (previousUuid != null &&
-      previousUuid.isNotEmpty &&
-      previousUuid != scannedCardId) {
-    ctx.dispatch(MyCardActionCreator.onLoadCardInfo(previousUuid));
+  final previous = ctx.state.cardDetailBeforeScan;
+  ctx.state.cardDetailBeforeScan = null;
+  if (previous != null) {
+    ctx.state.pageConfig = PageFieldConfigInfo();
+    _onCheckPageConfig(action, ctx, previous);
+    ctx.broadcast(MyCardActionCreator.onChangeBgcolorInReTap(false));
+    ctx.dispatch(MyCardActionCreator.onLoadSuccess(cardDetail: previous));
     return;
   }
   ctx.state.pageConfig = PageFieldConfigInfo();
@@ -779,6 +781,7 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
 
     StartupTime.mark('mycard_scan_success');
     // 每次扫卡都先清空旧卡片内容，确保加载态走骨屏而不是遮罩 loading。
+    ctx.state.cardDetailBeforeScan = ctx.state.cardDetail;
     ctx.dispatch(MyCardActionCreator.onClearCardDetail());
     ctx.dispatch(MyCardActionCreator.onShowLoading());
 
@@ -996,6 +999,7 @@ Future<void> _onCardActivedSuc(Action action, Context<MyCardState> ctx) async {
   }
   String cardId = ctx.state.cardDetail!.uid!;
   if (ctx.state.cardDetail != null) {
+    ctx.state.cardDetailBeforeScan = ctx.state.cardDetail;
     ctx.dispatch(MyCardActionCreator.onClearCardDetail());
     print("_onCardActivedSuc:$cardId");
   }
@@ -1053,7 +1057,7 @@ Future<void> _onCardActivedSuc(Action action, Context<MyCardState> ctx) async {
           Navigator.of(ctx.context).pushNamed('activateDetailPage',
               arguments: {'uuid': cardDetail.uid});
         }
-        await _restoreMyCardAfterInactivePrompt(ctx, cardId);
+        await _restoreMyCardAfterInactivePrompt(action, ctx);
         return;
       }
       print("cardDetailUrl_onLoadSuccess:$cardId");
