@@ -224,6 +224,8 @@ Future<void> _onLoadCardInfo(Action action, Context<MyCardState> ctx) async {
           Navigator.of(ctx.context).pushNamed('activateDetailPage',
               arguments: {'uuid': cardDetail.uid});
         }
+        // 取消/离开弹窗后需退出骨屏；未激活卡不会写入本地 uuid。
+        await _restoreMyCardAfterInactivePrompt(ctx, cardId);
         return;
       }
 
@@ -280,6 +282,22 @@ Future<void> _onLoadCardInfo(Action action, Context<MyCardState> ctx) async {
     ctx.dispatch(MyCardActionCreator.onLoadFailure(result.message));
     return;
   }
+}
+
+/// 未激活提示关闭后退出骨屏：有上一张已绑定卡则拉回，否则回到空默认页。
+Future<void> _restoreMyCardAfterInactivePrompt(
+  Context<MyCardState> ctx,
+  String scannedCardId,
+) async {
+  final previousUuid = await LocalStorage.getCardUuid();
+  if (previousUuid != null &&
+      previousUuid.isNotEmpty &&
+      previousUuid != scannedCardId) {
+    ctx.dispatch(MyCardActionCreator.onLoadCardInfo(previousUuid));
+    return;
+  }
+  ctx.state.pageConfig = PageFieldConfigInfo();
+  ctx.dispatch(MyCardActionCreator.onLoadSuccess());
 }
 
 Future<void> _cachePageFieldConfig(SmartCardDetail detail,
@@ -1033,6 +1051,7 @@ Future<void> _onCardActivedSuc(Action action, Context<MyCardState> ctx) async {
           Navigator.of(ctx.context).pushNamed('activateDetailPage',
               arguments: {'uuid': cardDetail.uid});
         }
+        await _restoreMyCardAfterInactivePrompt(ctx, cardId);
         return;
       }
       print("cardDetailUrl_onLoadSuccess:$cardId");
