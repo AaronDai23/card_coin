@@ -11,11 +11,37 @@ import 'package:card_coin/utils/ntag_ndef_writer.dart';
 import 'package:card_coin/utils/string_util.dart';
 import 'package:card_coin/widget/custom_alert_dialog.dart';
 import 'package:fish_redux/fish_redux.dart';
+import 'package:flutter/services.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/platform_tags.dart';
 import 'package:flutter/material.dart' hide Action;
+import 'package:oktoast/oktoast.dart';
 import 'action.dart';
 import 'state.dart';
+
+const MethodChannel _nfcChannel = MethodChannel('com.cardcoin.card_coin/nfc');
+
+/// Must be off while nfc_manager reader mode is active, otherwise Oppo/ColorOS
+/// delivers a parallel foreground-dispatch Intent and breaks NTAG transceive.
+Future<void> _setNativeForegroundDispatch(bool enabled) async {
+  if (!Platform.isAndroid) return;
+  try {
+    await _nfcChannel.invokeMethod(
+      'setForegroundDispatchEnabled',
+      {'enabled': enabled},
+    );
+  } catch (_) {}
+}
+
+Future<void> _finishCheckSession() async {
+  try {
+    await NfcManager.instance.stopSession();
+  } catch (_) {}
+  await _setNativeForegroundDispatch(true);
+  try {
+    await BlockchainPlatform.instance.resetNfcReaderMode();
+  } catch (_) {}
+}
 
 Effect<CheckCardState>? buildEffect() {
   return combineEffects(<Object, Effect<CheckCardState>>{
@@ -29,7 +55,7 @@ Effect<CheckCardState>? buildEffect() {
 
 Future<void> _onDispose(Action action, Context<CheckCardState> ctx) async {
   ctx.state.timer?.cancel();
-  BlockchainPlatform.instance.resetNfcReaderMode();
+  await _finishCheckSession();
 }
 
 List<HealthCheckInfo> _cpuCheckList(AppLanguageResource languageResource) {
@@ -128,9 +154,9 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
             enableCancel: false,
             confirmText: "I know",
           );
-        }).then((isConfirm) {
+        }).then((isConfirm) async {
       if (isConfirm) {
-        NfcManager.instance.stopSession();
+        await _finishCheckSession();
         var list = ctx.state.checkList
             .map((e) => e.copyWith(status: HealthStatus.none)..result = null)
             .toList();
@@ -152,6 +178,9 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
     TaskInfo(HealthCheckTask.shareVersion),
     TaskInfo(HealthCheckTask.ndefVersion),
   ];
+
+  // Same as write_ntag_page: FD + reader mode both firing breaks NTAG on Oppo.
+  await _setNativeForegroundDispatch(false);
 
   NfcManager.instance.startSession(
     pollingOptions: {
@@ -186,16 +215,25 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
         }
       }
 
-      // NTAG: no IsoDep → detect via GET_VERSION; check uid / SN / URL / lock.
+      // NTAG: no IsoDep → detect via GET_VERSION / CC / ATQA; then health check.
       if (isoDepAndroid == null && isoDepIos == null) {
-        final model = await NtagNdefWriter.detectModel(tag);
+        var model = await NtagNdefWriter.detectModel(tag);
+        if (model == NtagModel.unknown && NtagNdefWriter.looksLikeNtag(tag)) {
+          // Oppo often loses GET_VERSION; still run NTAG checklist as 213.
+          model = NtagModel.ntag213;
+          print('NTAG detect fallback → ntag213 (ATQA/NDEF heuristic)');
+        }
         if (model != NtagModel.unknown) {
           await _runNtagHealthCheck(ctx, tag, model);
           ctx.state.timer?.cancel();
-          NfcManager.instance.stopSession();
-          await BlockchainPlatform.instance.resetNfcReaderMode();
+          await _finishCheckSession();
           return;
         }
+        print('check_card: unsupported tag keys=${tag.data.keys.toList()}');
+        showToast('Unsupported tag');
+        ctx.state.timer?.cancel();
+        await _finishCheckSession();
+        return;
       }
 
       if (isoDepAndroid != null || isoDepIos != null) {
@@ -545,13 +583,11 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
       }
 
       ctx.state.timer?.cancel();
-      NfcManager.instance.stopSession();
-      await BlockchainPlatform.instance.resetNfcReaderMode();
+      await _finishCheckSession();
     },
     onError: (NfcError error) async {
       ctx.state.timer?.cancel();
-      NfcManager.instance.stopSession();
-      await BlockchainPlatform.instance.resetNfcReaderMode();
+      await _finishCheckSession();
       // 判断是否是取消错误
 
       if (error.message.contains('Session invalidated by user')) {
@@ -702,7 +738,7 @@ List<int> _getNDEFAid() {
 
 Future<void> _onResetCheckStutas(
     Action action, Context<CheckCardState> ctx) async {
-  NfcManager.instance.stopSession();
+  await _finishCheckSession();
   ctx.state.canceler.cancelAll("");
   var list = ctx.state.checkList
       .map((e) => e.copyWith(status: HealthStatus.none)..result = null)

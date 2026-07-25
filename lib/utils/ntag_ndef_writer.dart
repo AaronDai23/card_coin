@@ -117,27 +117,83 @@ class NtagNdefWriter {
     return null;
   }
 
+  /// Detect NTAG213/215/216. Oppo/ColorOS often drops RF during GET_VERSION;
+  /// fall back to CC page / ATQA+SAK so health-check still runs.
   static Future<NtagModel> detectModel(NfcTag tag) async {
     final nfcA = NfcA.from(tag);
     if (nfcA == null) return NtagModel.unknown;
+
+    final fromAtqa = _modelFromAtqaSak(nfcA);
+
     try {
       final resp =
           await nfcA.transceive(data: Uint8List.fromList([0x60])); // GET_VERSION
-      if (resp.length < 8) return NtagModel.unknown;
-      // Byte6 = storage size encoding (NXP): 0x0F=213, 0x11=215, 0x13=216
-      switch (resp[6]) {
-        case 0x0F:
-          return NtagModel.ntag213;
-        case 0x11:
-          return NtagModel.ntag215;
-        case 0x13:
-          return NtagModel.ntag216;
-        default:
-          return NtagModel.unknown;
-      }
+      final fromVersion = _modelFromGetVersion(resp);
+      if (fromVersion != NtagModel.unknown) return fromVersion;
     } catch (_) {
-      return NtagModel.unknown;
+      // continue to CC / ATQA
     }
+
+    try {
+      // READ page 3 = Capability Container (E1 10 <size> 00)
+      final cc = await nfcA.transceive(data: Uint8List.fromList([0x30, 0x03]));
+      final fromCc = _modelFromCapabilityContainer(cc);
+      if (fromCc != NtagModel.unknown) return fromCc;
+    } catch (_) {
+      // continue to ATQA
+    }
+
+    return fromAtqa;
+  }
+
+  static NtagModel _modelFromGetVersion(Uint8List resp) {
+    if (resp.length < 8) return NtagModel.unknown;
+    // Byte6 = storage size encoding (NXP): 0x0F=213, 0x11=215, 0x13=216
+    switch (resp[6]) {
+      case 0x0F:
+        return NtagModel.ntag213;
+      case 0x11:
+        return NtagModel.ntag215;
+      case 0x13:
+        return NtagModel.ntag216;
+      default:
+        return NtagModel.unknown;
+    }
+  }
+
+  static NtagModel _modelFromCapabilityContainer(Uint8List page) {
+    if (page.length < 4) return NtagModel.unknown;
+    if (page[0] != 0xE1) return NtagModel.unknown;
+    switch (page[2]) {
+      case 0x12:
+        return NtagModel.ntag213;
+      case 0x3E:
+        return NtagModel.ntag215;
+      case 0x6D:
+        return NtagModel.ntag216;
+      default:
+        return NtagModel.unknown;
+    }
+  }
+
+  /// NTAG213/215/216 typically ATQA 0x0044, SAK 0x00 — assume 213 (smallest).
+  static NtagModel _modelFromAtqaSak(NfcA nfcA) {
+    if (nfcA.sak != 0x00) return NtagModel.unknown;
+    final atqa = nfcA.atqa;
+    if (atqa.length < 2) return NtagModel.unknown;
+    final looksNtag = (atqa[0] == 0x44 && atqa[1] == 0x00) ||
+        (atqa[0] == 0x00 && atqa[1] == 0x44);
+    return looksNtag ? NtagModel.ntag213 : NtagModel.unknown;
+  }
+
+  /// True when the tag looks like a Type-2 NTAG (NfcA, no IsoDep).
+  static bool looksLikeNtag(NfcTag tag) {
+    if (IsoDep.from(tag) != null) return false;
+    final nfcA = NfcA.from(tag);
+    if (nfcA == null) return false;
+    if (_modelFromAtqaSak(nfcA) != NtagModel.unknown) return true;
+    // NDEF tech present on Ultralight-family is enough to attempt health check.
+    return Ndef.from(tag) != null || MifareUltralight.from(tag) != null;
   }
 
   static String modelLabel(NtagModel model) {
