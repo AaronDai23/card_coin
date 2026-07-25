@@ -24,7 +24,7 @@ void _onInit(Action action, Context<DeviceSettingsState> ctx) async {
       await LocalStorage.getCardUuid() ?? ctx.state.cardId.toUpperCase();
 
   final cardInfoJson = await LocalStorage.getString(
-      LocalStorage.cardInfo + cardUuid.toUpperCase()!);
+      LocalStorage.cardInfo + cardUuid.toUpperCase());
   if (cardInfoJson?.isNotEmpty ?? false) {
     ctx.state.cardInfo = CardInfo.fromJson(json.decode(cardInfoJson!));
     ctx.dispatch(DeviceSettingsActionCreator.onUpdateImage());

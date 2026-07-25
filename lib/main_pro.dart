@@ -13,7 +13,6 @@ import 'app.dart';
 ///打包
 /// flutter build apk --flavor card_coin_pro -t lib/main_pro.dart --release
 /// flutter build appbundle --flavor card_coin_pro -t lib/main_pro.dart
-
 Future<void> main() async {
   var configuredApp = AppConfig(
     appDisplayName: "ChipBase",

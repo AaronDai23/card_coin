@@ -226,12 +226,12 @@ class _BankCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: bankInfo == null || !bankInfo!.bound
-                        ? Row(children: [
-                            const Text('Bank Account',
+                        ? const Row(children: [
+                            Text('Bank Account',
                                 style: TextStyle(
                                     color: Colors.grey, fontSize: 14)),
-                            const SizedBox(width: 4),
-                            const Text('Bind Bank Card',
+                            SizedBox(width: 4),
+                            Text('Bind Bank Card',
                                 style: TextStyle(
                                     color: Color(0xFF07C160),
                                     fontSize: 14,
@@ -357,9 +357,9 @@ class _NumPad extends StatelessWidget {
                         child: Row(children: [
                           _keyFlex('.'),
                           _keyFlex('0'),
-                          Expanded(
+                          const Expanded(
                               child:
-                                  ColoredBox(color: const Color(0xFFEEF0F3))),
+                                  ColoredBox(color: Color(0xFFEEF0F3))),
                         ]),
                       ),
                     ],

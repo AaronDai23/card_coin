@@ -62,23 +62,23 @@ class DeepLinkManager {
       return;
     }
     _initialized = true;
-    final _t0 = DateTime.now().millisecondsSinceEpoch;
-    print('[TIMING][DeepLink] init start, t=$_t0');
+    final t0 = DateTime.now().millisecondsSinceEpoch;
+    print('[TIMING][DeepLink] init start, t=$t0');
 
     // 1. 处理冷启动链接
     Uri? initialUri;
-    const _channel = MethodChannel('com.walletconnect.flutterwallet/methods');
+    const channel = MethodChannel('com.walletconnect.flutterwallet/methods');
 
     if (Platform.isAndroid) {
       // ① 首选：MethodChannel
       try {
         print(
-            '[TIMING][DeepLink] calling MethodChannel initialLink, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
-        final String? linkStr = await _channel
+            '[TIMING][DeepLink] calling MethodChannel initialLink, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
+        final String? linkStr = await channel
             .invokeMethod<String?>('initialLink')
             .timeout(const Duration(milliseconds: 800), onTimeout: () => null);
         print(
-            '[TIMING][DeepLink] MethodChannel returned: $linkStr, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+            '[TIMING][DeepLink] MethodChannel returned: $linkStr, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
         if (linkStr != null && linkStr.isNotEmpty) {
           initialUri = Uri.tryParse(linkStr);
         }
@@ -90,12 +90,12 @@ class DeepLinkManager {
       if (initialUri == null) {
         try {
           print(
-              '[TIMING][DeepLink] calling getInitialAppLink, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+              '[TIMING][DeepLink] calling getInitialAppLink, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
           initialUri = await _appLinks
               .getInitialAppLink()
               .timeout(const Duration(seconds: 2), onTimeout: () => null);
           print(
-              '[TIMING][DeepLink] getInitialAppLink returned: $initialUri, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+              '[TIMING][DeepLink] getInitialAppLink returned: $initialUri, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
         } catch (e) {
           print('[DeepLink] init: getInitialAppLink error: $e');
         }
@@ -264,9 +264,9 @@ class DeepLinkManager {
   }
 
   Future<void> _doRegister(Uri uri, {bool isColdStart = false}) async {
-    final _t0 = DateTime.now().millisecondsSinceEpoch;
+    final t0 = DateTime.now().millisecondsSinceEpoch;
     print(
-        '[TIMING][DeepLink] _doRegister start, isColdStart=$isColdStart, t=$_t0');
+        '[TIMING][DeepLink] _doRegister start, isColdStart=$isColdStart, t=$t0');
 
     if (isColdStart) {
       const maxContextWait = Duration(seconds: 5);
@@ -281,12 +281,12 @@ class DeepLinkManager {
         return;
       }
       print(
-          '[TIMING][DeepLink] context ready, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+          '[TIMING][DeepLink] context ready, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
 
       // 2. 在推入骨架屏之前，先检查栈顶——
       //    若 SplashPage 已在我们到达之前完成导航（竞争窗口），
       //    则直接推入骨架屏即可，无需轮询等待。
-      const _mainRoutes = {
+      const mainRoutes = {
         'cardBaseMainPage',
         'scanLoginPage',
         'mainPage',
@@ -298,7 +298,7 @@ class DeepLinkManager {
         return true;
       });
       final splashAlreadyDone =
-          preCheckTop != null && _mainRoutes.contains(preCheckTop);
+          preCheckTop != null && mainRoutes.contains(preCheckTop);
 
       // 推入骨架屏（无论哪种情况都推，覆盖空白期）
       navigatorKey.currentState?.push(MaterialPageRoute<void>(
@@ -306,7 +306,7 @@ class DeepLinkManager {
         builder: (_) => const _DeepLinkLoadingPage(),
       ));
       print(
-          '[TIMING][DeepLink] skeleton pushed, splashAlreadyDone=$splashAlreadyDone, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+          '[TIMING][DeepLink] skeleton pushed, splashAlreadyDone=$splashAlreadyDone, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
 
       if (!splashAlreadyDone) {
         // 3a. SplashPage 仍在运行：轮询等待它完成
@@ -326,9 +326,9 @@ class DeepLinkManager {
             totalWaited += pollInterval;
             continue;
           }
-          if (topName != null && _mainRoutes.contains(topName)) {
+          if (topName != null && mainRoutes.contains(topName)) {
             print(
-                '[TIMING][DeepLink] splash done detected, topName=$topName, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+                '[TIMING][DeepLink] splash done detected, topName=$topName, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
             navigatorKey.currentState?.push(MaterialPageRoute<void>(
               settings: const RouteSettings(name: '_deepLinkLoading'),
               builder: (_) => const _DeepLinkLoadingPage(),
@@ -484,26 +484,26 @@ class _DeepLinkLoadingPage extends StatelessWidget {
         ),
       ),
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      body: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SkeletonBox(width: 160, height: 22),
-            const SizedBox(height: 24),
-            const _SkeletonBox(height: 14),
-            const SizedBox(height: 8),
-            const _SkeletonBox(height: 14, width: 280),
-            const SizedBox(height: 8),
-            const _SkeletonBox(height: 14, width: 240),
-            const SizedBox(height: 24),
-            const _SkeletonBox(height: 120, radius: 12),
-            const SizedBox(height: 24),
-            const _SkeletonBox(height: 14),
-            const SizedBox(height: 8),
-            const _SkeletonBox(height: 14, width: 200),
-            const SizedBox(height: 8),
-            const _SkeletonBox(height: 14, width: 260),
+            _SkeletonBox(width: 160, height: 22),
+            SizedBox(height: 24),
+            _SkeletonBox(height: 14),
+            SizedBox(height: 8),
+            _SkeletonBox(height: 14, width: 280),
+            SizedBox(height: 8),
+            _SkeletonBox(height: 14, width: 240),
+            SizedBox(height: 24),
+            _SkeletonBox(height: 120, radius: 12),
+            SizedBox(height: 24),
+            _SkeletonBox(height: 14),
+            SizedBox(height: 8),
+            _SkeletonBox(height: 14, width: 200),
+            SizedBox(height: 8),
+            _SkeletonBox(height: 14, width: 260),
           ],
         ),
       ),

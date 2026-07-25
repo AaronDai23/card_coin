@@ -245,7 +245,7 @@ Future<void> _onStartWrite(Action action, Context<WriteNtagState> ctx) async {
   // Always use the app's default password — no dialog. If the tag is already
   // protected (by us), we auto-authenticate with this same default password in
   // the SAME tap/session, so protected tags behave exactly like a first write.
-  final password = NtagNdefWriter.defaultPasswordBytes;
+  const password = NtagNdefWriter.defaultPasswordBytes;
 
   ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(
     'Hold NTAG… detect 213/215 → (unlock if protected) → write URL+AAR'
@@ -335,8 +335,7 @@ Future<void> _onStartDecode(Action action, Context<WriteNtagState> ctx) async {
         fullNdefUrl: decoded.url ?? '',
         chipModel: NtagNdefWriter.modelLabel(decoded.model),
       ));
-      ctx.dispatch(
-          WriteNtagActionCreator.onUpdateStatus(decoded.rawSummary));
+      ctx.dispatch(WriteNtagActionCreator.onUpdateStatus(decoded.rawSummary));
       showToast('Decode OK: ${NtagNdefWriter.modelLabel(decoded.model)}');
     },
   );

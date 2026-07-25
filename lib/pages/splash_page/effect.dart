@@ -60,14 +60,14 @@ Effect<SplashState>? buildEffect() {
 }
 
 Future<void> _onInit(Action action, Context<SplashState> ctx) async {
-  final _t0 = DateTime.now().millisecondsSinceEpoch;
-  debugPrint('[TIMING][Splash] _onInit start, t=$_t0');
+  final t0 = DateTime.now().millisecondsSinceEpoch;
+  debugPrint('[TIMING][Splash] _onInit start, t=$t0');
   StartupTime.printElapsed('splash_on_init_begin');
 
   // 3. 初始化全局 DeepLink 监听（仅调用一次）
   DeepLinkManager().init();
   debugPrint(
-      '[TIMING][Splash] DeepLinkManager.init() dispatched, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+      '[TIMING][Splash] DeepLinkManager.init() dispatched, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
 
   // 多语言缓存：完全异步，不阻塞导航流程。
   // 注意：不使用 await，因为大型 JSON（>200KB）的 compute() 会阻塞 isolate
@@ -80,11 +80,11 @@ Future<void> _onInit(Action action, Context<SplashState> ctx) async {
   // AppConfig.of(context) 是 InheritedWidget，必须在 initState() 完成后才能访问。
   await Future<void>.delayed(Duration.zero);
   debugPrint(
-      '[TIMING][Splash] after delayed(zero), dispatching onStartAppsFlyer, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+      '[TIMING][Splash] after delayed(zero), dispatching onStartAppsFlyer, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
   StartupTime.printElapsed('splash_before_start_appsflyer');
   ctx.dispatch(SplashActionCreator.onStartAppsFlyer());
   debugPrint(
-      '[TIMING][Splash] onStartAppsFlyer dispatched, t=${DateTime.now().millisecondsSinceEpoch - _t0}ms');
+      '[TIMING][Splash] onStartAppsFlyer dispatched, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
 }
 
 Future<void> _initLocalizationFromCache() async {
@@ -302,15 +302,15 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
   }
 
   void gotoMainPage() async {
-    final _gt0 = DateTime.now().millisecondsSinceEpoch;
-    print('[TIMING][Splash] gotoMainPage start, t=$_gt0');
+    final gt0 = DateTime.now().millisecondsSinceEpoch;
+    print('[TIMING][Splash] gotoMainPage start, t=$gt0');
     StartupTime.printElapsed('goto_main_page_begin');
 
     // DeepLink 冷启动保护：若 DeepLinkManager 已将用户导航到真实页面，
     // SplashPage 的 gotoMainPage 不应再清栈，否则会把 DeepLink 推入的页面清掉。
     // 约定：栈顶为 splashPage 路由名('/')、骨架屏('_deepLinkLoading')或 null
     // 时才允许正常导航；其他情况说明 DeepLink 已占据导航主导权，直接 return。
-    final _routes = <String>{
+    final routes = <String>{
       'cardBaseMainPage',
       'scanLoginPage',
       'mainPage',
@@ -324,7 +324,7 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
       currentTop = route.settings.name;
       return true;
     });
-    if (currentTop != null && !_routes.contains(currentTop)) {
+    if (currentTop != null && !routes.contains(currentTop)) {
       print(
           '[TIMING][Splash] gotoMainPage: SKIP, DeepLink already navigated to $currentTop');
       return;
@@ -333,29 +333,29 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
     var appId = AppConfig.of(ctx.context).appInternalId;
     if (appId == AppType.lite || appId == AppType.pro) {
       print(
-          '[TIMING][Splash] navigating to mainPage, t=${DateTime.now().millisecondsSinceEpoch - _gt0}ms');
+          '[TIMING][Splash] navigating to mainPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
       Navigator.pushNamedAndRemoveUntil(
           ctx.context, 'mainPage', (route) => false);
     } else {
       print(
-          '[TIMING][Splash] calling getUserInfo, t=${DateTime.now().millisecondsSinceEpoch - _gt0}ms');
+          '[TIMING][Splash] calling getUserInfo, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
       var userInfo = await LocalStorage.getUserInfo();
       print(
-          '[TIMING][Splash] getUserInfo done, userInfo=${userInfo != null ? "exists" : "null"}, t=${DateTime.now().millisecondsSinceEpoch - _gt0}ms');
+          '[TIMING][Splash] getUserInfo done, userInfo=${userInfo != null ? "exists" : "null"}, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
       if (userInfo != null) {
         print(
-            '[TIMING][Splash] navigating to cardBaseMainPage, t=${DateTime.now().millisecondsSinceEpoch - _gt0}ms');
+            '[TIMING][Splash] navigating to cardBaseMainPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
         Navigator.pushNamedAndRemoveUntil(
             ctx.context, 'cardBaseMainPage', (route) => false);
       } else {
         print(
-            '[TIMING][Splash] navigating to scanLoginPage, t=${DateTime.now().millisecondsSinceEpoch - _gt0}ms');
+            '[TIMING][Splash] navigating to scanLoginPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
         Navigator.pushNamedAndRemoveUntil(
             ctx.context, 'scanLoginPage', (route) => false);
       }
     }
     print(
-        '[TIMING][Splash] gotoMainPage complete, t=${DateTime.now().millisecondsSinceEpoch - _gt0}ms');
+        '[TIMING][Splash] gotoMainPage complete, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
   }
 
   // GooglePlayServicesAvailability availability = await GoogleApiAvailability
