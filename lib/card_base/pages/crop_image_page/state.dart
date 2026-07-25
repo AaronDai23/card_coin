@@ -1,27 +1,28 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:card_coin/global_store/states/app_language_resource.dart';
+import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
-import 'package:image_crop_plus/image_crop_plus.dart';
 
 import '../../../global_store/state.dart';
 
-
 class CropImageState implements GlobalBaseState<CropImageState> {
   late File file;
-  late GlobalKey cropKey;
-//  File sample;
+  late Uint8List imageBytes;
+  late CropController cropController;
   File? lastCropped;
   late double aspectRatio;
+
   @override
   CropImageState clone() {
     return CropImageState()
       ..file = file
-      ..cropKey = cropKey
+      ..imageBytes = imageBytes
+      ..cropController = cropController
       ..languageLocale = languageLocale
       ..languageResource = languageResource
       ..aspectRatio = aspectRatio
-//      ..sample = sample
       ..lastCropped = lastCropped;
   }
 
@@ -33,12 +34,11 @@ class CropImageState implements GlobalBaseState<CropImageState> {
 }
 
 CropImageState initState(Map<String, dynamic>? args) {
-  File file = args!["file"]!;
-  double? aspectRatio = args["aspectRatio"];
-//  File sample = args["sample"];
+  final File file = args!["file"]!;
+  final double? aspectRatio = args["aspectRatio"];
   return CropImageState()
     ..file = file
-    ..aspectRatio = aspectRatio??1.0
-//    ..sample = sample
-    ..cropKey = GlobalKey<CropState>();
+    ..imageBytes = file.readAsBytesSync()
+    ..aspectRatio = aspectRatio ?? 1.0
+    ..cropController = CropController();
 }

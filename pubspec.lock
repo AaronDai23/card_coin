@@ -304,6 +304,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.1.2"
+  crop_your_image:
+    dependency: "direct main"
+    description:
+      name: crop_your_image
+      sha256: "14c8977b11a009dc5e73e0f6522970f93363e38183f1b2ffefe1676dc9c3f49d"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.0"
   cross_file:
     dependency: transitive
     description:
@@ -927,13 +935,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.0.5"
-  image_crop_plus:
-    dependency: "direct main"
-    description:
-      path: "vendor/image_crop_plus"
-      relative: true
-    source: path
-    version: "1.0.0"
   image_gallery_saver_plus:
     dependency: "direct main"
     description:
