@@ -67,7 +67,7 @@ Future<void> _onSetPinCodeClick(
           expectedCardId: ctx.state.cardId,
           cardNo: cardNo);
       if (response.isSuccess) {
-        if (await Vibration.hasVibrator() ?? false) {
+        if (await Vibration.hasVibrator()) {
           Vibration.vibrate(duration: 200);
         }
         await showDialog(
@@ -88,7 +88,7 @@ Future<void> _onSetPinCodeClick(
       response = await ScanUtil.chipScanWithRunnable(CreatePinRunnable(pinCode),
           expectedCardId: ctx.state.cardId, cardNo: cardNo);
       if (response.isSuccess) {
-        if (await Vibration.hasVibrator() ?? false) {
+        if (await Vibration.hasVibrator()) {
           Vibration.vibrate(duration: 200);
         }
         final pukCode = response.data!.toString().substring(0, 8);

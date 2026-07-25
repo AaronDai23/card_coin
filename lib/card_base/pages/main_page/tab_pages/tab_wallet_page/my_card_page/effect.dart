@@ -1123,15 +1123,14 @@ Future<void> _onUpdateCurNum(Action action, Context<MyCardState> ctx) async {
   olist[1] = cur;
   print("curssss0:${ctx.state.oCur}，newCur：${ctx.state.newCur}");
   // 图表切换数值时触发震动（NFC 扫卡由系统震动处理，此处仅响应图表交互）
-  bool? isCan = await Vibration.hasVibrator();
-  if (isCan != null && isCan == true) {
+  if (await Vibration.hasVibrator()) {
     vibrate();
   }
   ctx.dispatch(MyCardActionCreator.onUpdateViewAfterUpdateCurrentNum(olist));
 }
 
 void vibrate() async {
-  if (await Vibration.hasVibrator() ?? false) {
+  if (await Vibration.hasVibrator()) {
     print('开始震动');
     Vibration.vibrate(duration: 200); // 单次震动 500 毫秒
   }

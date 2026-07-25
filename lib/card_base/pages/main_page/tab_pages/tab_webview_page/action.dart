@@ -68,7 +68,7 @@ class TabWebviewActionCreator {
     return Action(TabWebviewAction.uploadRequestUrl, payload: url);
   }
 
-  static Action onInjectedObject(JavascriptMessage message) {
+  static Action onInjectedObject(JavaScriptMessage message) {
     return Action(TabWebviewAction.injectedObject, payload: message);
   }
 

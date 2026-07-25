@@ -6,7 +6,7 @@ import 'package:card_coin/widget/base_page_loading.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 
@@ -126,7 +126,7 @@ Widget buildView(
                     var byteData =
                         await image.toByteData(format: ImageByteFormat.png);
                     if (byteData != null) {
-                      final result = await ImageGallerySaver.saveImage(
+                      final result = await ImageGallerySaverPlus.saveImage(
                           byteData.buffer.asUint8List());
                       if (result['isSuccess']) {
                         showToast('图片保存成功');

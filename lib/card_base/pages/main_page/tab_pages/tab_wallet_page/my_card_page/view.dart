@@ -14,7 +14,7 @@ import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:flutter_picker/picker.dart';
+import 'package:flutter_picker_plus/picker.dart';
 import 'package:super_tooltip/super_tooltip.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 

@@ -11,6 +11,70 @@ import '../../../../widgets/message_bell_widget.dart';
 import 'action.dart';
 import 'state.dart';
 
+WebViewController _ensureTabWebViewController({
+  required TabWebviewState state,
+  required Dispatch dispatch,
+  required ViewService viewService,
+  required String pageUrl,
+}) {
+  final existing = state.controller;
+  if (existing != null) {
+    return existing;
+  }
+
+  final controller = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..setBackgroundColor(Colors.white)
+    ..setNavigationDelegate(
+      NavigationDelegate(
+        onNavigationRequest: (NavigationRequest request) {
+          final url = request.url;
+          final uri = Uri.tryParse(url);
+          if (uri != null && uri.scheme == 'wc') {
+            dispatch(TabWebviewActionCreator.onParsedWalletUrl(uri));
+            return NavigationDecision.prevent;
+          }
+
+          final isPrevent =
+              state.blackList.any((element) => url.startsWith(element));
+          dispatch(TabWebviewActionCreator.onUploadRequestUrl(url));
+          return isPrevent
+              ? NavigationDecision.prevent
+              : NavigationDecision.navigate;
+        },
+        onWebResourceError: (WebResourceError error) {
+          if (error.isForMainFrame == false) {
+            return;
+          }
+          showDialog(
+              context: viewService.context,
+              builder: (context) {
+                return ZenggeTextAlertDialog(error.description);
+              });
+        },
+        onPageFinished: (url) {
+          dispatch(TabWebviewActionCreator.onShowProgressIndicator(false));
+        },
+        onPageStarted: (url) {
+          dispatch(TabWebviewActionCreator.onShowProgressIndicator(true));
+        },
+        onProgress: (int progress) =>
+            dispatch(TabWebviewActionCreator.onUpdateProgress(progress / 100)),
+      ),
+    )
+    ..addJavaScriptChannel(
+      'injectedObject',
+      onMessageReceived: (JavaScriptMessage message) =>
+          dispatch(TabWebviewActionCreator.onInjectedObject(message)),
+    )
+    ..loadRequest(Uri.parse(pageUrl));
+
+  // Keep fish_redux state in sync without waiting for a rebuild cycle.
+  state.controller = controller;
+  dispatch(TabWebviewActionCreator.onUpdateController(controller));
+  return controller;
+}
+
 Widget buildView(
     TabWebviewState state, Dispatch dispatch, ViewService viewService) {
   var name = state.categoryItem.name ?? '';
@@ -108,116 +172,17 @@ Widget buildView(
                       ),
                     ),
                     Expanded(
-                      child: WebView(
-                        onWebViewCreated: (WebViewController controller) {
-                          dispatch(TabWebviewActionCreator.onUpdateController(
-                              controller));
-                        },
-                        navigationDelegate: (NavigationRequest request) {
-                          String url = request.url;
-                          final uri = Uri.tryParse(request.url);
-                          if (uri != null) {
-                            if (uri.scheme == 'wc') {
-                              dispatch(
-                                  TabWebviewActionCreator.onParsedWalletUrl(
-                                      uri));
-                              return NavigationDecision.prevent;
-                            }
-                          }
-
-                          var isPrevent = state.blackList
-                              .any((element) => url.startsWith(element));
-                          dispatch(
-                              TabWebviewActionCreator.onUploadRequestUrl(url));
-                          // if (!isPrevent) {
-                          //   dispatch(TabWebviewActionCreator.onUploadRequestUrl(url));
-                          // }
-                          return isPrevent
-                              ? NavigationDecision.prevent
-                              : NavigationDecision.navigate;
-                        },
-                        onWebResourceError: (WebResourceError error) {
-                          showDialog(
-                              context: viewService.context,
-                              builder: (context) {
-                                return ZenggeTextAlertDialog(error.description);
-                              });
-                        },
-                        onPageFinished: (url) {
-                          dispatch(
-                              TabWebviewActionCreator.onShowProgressIndicator(
-                                  false));
-                        },
-                        onPageStarted: (url) async {
-                          dispatch(
-                              TabWebviewActionCreator.onShowProgressIndicator(
-                                  true));
-                        },
-                        onProgress: (int progress) => dispatch(
-                            TabWebviewActionCreator.onUpdateProgress(
-                                progress / 100)),
-                        initialUrl: pageUrl,
-                        javascriptMode: JavascriptMode.unrestricted,
-                        javascriptChannels: {
-                          JavascriptChannel(
-                              name: 'injectedObject',
-                              onMessageReceived: (JavascriptMessage message) =>
-                                  dispatch(
-                                      TabWebviewActionCreator.onInjectedObject(
-                                          message))),
-                        },
+                      child: WebViewWidget(
+                        controller: _ensureTabWebViewController(
+                          state: state,
+                          dispatch: dispatch,
+                          viewService: viewService,
+                          pageUrl: pageUrl,
+                        ),
                       ),
                     ),
                   ],
                 ),
-// <<<<<<< HEAD
-//               ),
-//               Expanded(
-//                 child: WebView(
-//                   onWebViewCreated: (WebViewController controller) {
-//                     dispatch(
-//                         TabWebviewActionCreator.onUpdateController(controller));
-//                   },
-//                   navigationDelegate: (NavigationRequest request) {
-//                     String url = request.url;
-//                     var isPrevent = state.blackList
-//                         .any((element) => url.startsWith(element));
-//                     dispatch(TabWebviewActionCreator.onUploadRequestUrl(url));
-//                     // if (!isPrevent) {
-//                     //   dispatch(TabWebviewActionCreator.onUploadRequestUrl(url));
-//                     // }
-//                     return isPrevent
-//                         ? NavigationDecision.prevent
-//                         : NavigationDecision.navigate;
-//                   },
-//                   onWebResourceError: (WebResourceError error) {
-//                     dispatch(TabWebviewActionCreator.onLoadFailure(
-//                         error.description));
-//                     // showDialog(
-//                     //     context: viewService.context,
-//                     //     builder: (context) {
-//                     //       return ZenggeTextAlertDialog(error.description);
-//                     //     });
-//                   },
-//                   onPageFinished: (url) {
-//                     dispatch(
-//                         TabWebviewActionCreator.onShowProgressIndicator(false));
-//                   },
-//                   onPageStarted: (url) async {
-//                     dispatch(
-//                         TabWebviewActionCreator.onShowProgressIndicator(true));
-//                   },
-//                   onProgress: (int progress) => dispatch(
-//                       TabWebviewActionCreator.onUpdateProgress(progress / 100)),
-//                   initialUrl: pageUrl,
-//                   javascriptMode: JavascriptMode.unrestricted,
-//                   javascriptChannels: {
-//                     JavascriptChannel(
-//                         name: 'injectedObject',
-//                         onMessageReceived: (JavascriptMessage message) =>
-//                             dispatch(TabWebviewActionCreator.onInjectedObject(
-//                                 message))),
-// =======
                 ValueListenableBuilder(
                   valueListenable: DeepLinkHandler.waiting,
                   builder: (context, value, _) {

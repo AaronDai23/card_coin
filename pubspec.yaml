@@ -52,7 +52,6 @@ dependencies:
 #  trust_wallet_core_lib: ^0.0.7+3.0.4
   dio: ^5.0.0
   # network_capture: ^1.0.5
-  flutter_windowmanager: ^0.2.0
 
   fish_redux:
     git:
@@ -62,7 +61,7 @@ dependencies:
   common_utils: ^2.1.0
 #  qr_flutter: 4.0.0
   pretty_qr_code: ^3.3.0
-  scan: ^1.6.0
+  scan_snap: ^0.2.2
   convert: ^3.0.1
   pull_to_refresh: ^2.0.0
   # encryptions: ^1.1.0+1
@@ -75,11 +74,9 @@ dependencies:
   retrofit: ^4.0.1
   logger: ^2.7.0  #for logging purpose
   json_annotation: ^4.8.1
-  webview_flutter: ^3.0.4
+  webview_flutter: ^4.10.0
   package_info_plus: ^8.0.2
-  update_app:
-    git:
-      url: https://e.coding.net/instacash-platform/instacash-platform/flutter_update_app.git
+  ota_update: ^7.0.0
   local_auth: ^2.1.6
   encrypt: ^5.0.3
   url_launcher: ^6.1.14
@@ -96,10 +93,11 @@ dependencies:
   app_settings: ^7.0.0
   html: ^0.15.0
   flutter_html: ">=3.0.0-beta.2 <4.0.0"
-  permission_handler: ^10.0.0
-  image_gallery_saver: ^2.0.3
+  permission_handler: ^11.3.1
+  image_gallery_saver_plus: ^5.0.0
   image_picker: ^0.8.5+3
-  image_crop_plus: ^1.0.0
+  image_crop_plus:
+    path: vendor/image_crop_plus
   image_compression: ^1.0.3
   appsflyer_sdk: 6.14.3
   flutter_dotenv: ^5.1.0
@@ -115,12 +113,10 @@ dependencies:
   dart_ping_ios: ^4.0.2
   marquee: ^2.2.3
   linear_progress_bar: ^1.1.0
-  flutter_picker:
-    path: vendor/flutter_picker
+  flutter_picker_plus: ^1.5.6
   fl_chart: ^0.64.0
-  slider_button: ^2.1.0
   animated_number: ^1.0.2
-  vibration: ^1.9.0
+  vibration: ^3.1.5
   super_tooltip: ^2.0.9
   flutter_secure_storage: ^9.2.0
   sharetrace_flutter_plugin: ^3.4.0
@@ -133,11 +129,11 @@ dependencies:
   app_links: ^3.4.0  # 推荐使用最新稳定版本
 
   chipcore_sdk:
-    # path: '../chipcore_sdk'     #
-    git:
-      url: https://github.com/AaronDai23/chipcore_sdk.git
-      # ref: v1.0.0   #
-      ref: main
+    path: '../chipcore_sdk'     #
+    # git:
+    #   url: https://github.com/AaronDai23/chipcore_sdk.git
+    #   # ref: v1.0.0   #
+    #   ref: main
   opentelemetry: ^0.18.10
 
 

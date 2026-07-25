@@ -233,7 +233,7 @@ Future<void> _onScanCard(Action action, Context<ScanWalletState> ctx) async {
     return;
   }
   // // 扫卡成功震动反馈
-  // if (await Vibration.hasVibrator() ?? false) {
+  // if (await Vibration.hasVibrator()) {
   //   Vibration.vibrate(duration: 200);
   // }
   print(

@@ -1,7 +1,7 @@
 import 'package:card_coin/card_base/widgets/gradient_theme.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
-import 'package:scan/scan.dart';
+import 'package:scan_snap/scan_snap.dart';
 
 import 'action.dart';
 import 'state.dart';

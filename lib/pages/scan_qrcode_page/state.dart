@@ -1,7 +1,7 @@
 import 'package:card_coin/global_store/state.dart';
 import 'package:card_coin/global_store/states/app_language_resource.dart';
 import 'package:flutter/material.dart';
-import 'package:scan/scan.dart';
+import 'package:scan_snap/scan_snap.dart';
 
 class ScanQrcodeState implements GlobalBaseState<ScanQrcodeState> {
   ScanController controller = ScanController();

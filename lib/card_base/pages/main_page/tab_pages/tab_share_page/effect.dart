@@ -1,5 +1,5 @@
 import 'package:fish_redux/fish_redux.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:oktoast/oktoast.dart';
 import '../../../../../http/address.dart';
 import '../../../../../http/http_manager.dart';
@@ -23,7 +23,7 @@ Future<void> _onSaveImage(Action action, Context<TabShareState> ctx) async {
   final languageResource = ctx.state.languageResource!;
 
   try {
-    await ImageGallerySaver.saveImage(action.payload,
+    await ImageGallerySaverPlus.saveImage(action.payload,
         quality: 60,
         name: 'share${DateTime.now().millisecondsSinceEpoch.toString()}');
     showToast(languageResource.saveRqSuccess);

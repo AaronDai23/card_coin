@@ -374,7 +374,7 @@ Future<void> _onScanCard(Action action, Context<HDWalletListState> ctx) async {
     final cardMessage = await BlockchainPlatform.instance
         .scanCardAndDerive(currencyList1, ctx.state.ndefLink);
     // 扫卡成功震动反馈
-    if (await Vibration.hasVibrator() ?? false) {
+    if (await Vibration.hasVibrator()) {
       Vibration.vibrate(duration: 200);
     }
     var currencies = cardMessage.currencyList.map((e) {

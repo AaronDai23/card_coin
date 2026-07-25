@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:card_coin/card_base/bean/card_info_bean.dart';
 import 'package:card_coin/card_base/pages/main_page/action.dart';
@@ -39,7 +38,6 @@ Effect<TabWebviewState>? buildEffect() {
 }
 
 Future<void> _onInit(Action action, Context<TabWebviewState> ctx) async {
-  if (Platform.isAndroid) WebView.platform = AndroidWebView();
   ctx.dispatch(TabWebviewActionCreator.onLoadDomain());
 }
 
@@ -114,7 +112,7 @@ Future<void> _onLanguageChanged(
 
   print('======loadUrl:$pageUrl');
 
-  ctx.state.controller?.loadUrl(pageUrl);
+  ctx.state.controller?.loadRequest(Uri.parse(pageUrl));
 }
 
 void _onUploadRequestUrl(Action action, Context<TabWebviewState> ctx) {
@@ -147,7 +145,7 @@ Future<void> _onLoadDomain(Action action, Context<TabWebviewState> ctx) async {
 
 Future<void> _onInjectedObject(
     Action action, Context<TabWebviewState> ctx) async {
-  JavascriptMessage message = action.payload;
+  JavaScriptMessage message = action.payload;
   var pageInfo = StartPageInfo.fromJson(json.decode(message.message));
   if (pageInfo.actionType == 'ACTIVITY') {
     if (pageInfo.actionTarget == 'scanCard') {

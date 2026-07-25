@@ -64,7 +64,7 @@ Future<void> _onConfirmClick(
         cardNo: cardNo);
 
     if (response.isSuccess) {
-      if (await Vibration.hasVibrator() ?? false) {
+      if (await Vibration.hasVibrator()) {
         Vibration.vibrate(duration: 200);
       }
       await showDialog(

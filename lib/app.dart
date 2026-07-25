@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:async';
 
 // import 'package:app_links/app_links.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'package:card_coin/card_base/pages/coin_message_detail_page/page.dart';
 import 'package:card_coin/card_base/pages/coin_message_list_page/page.dart';
 import 'package:card_coin/card_base/pages/device_activate_page/all_activate_page/page.dart';
@@ -495,12 +494,6 @@ Future<void> mainCommon() async {
         const SystemUiOverlayStyle(statusBarColor: Color(0x00F58A1F));
     SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
     // SystemChrome.setEnabledSystemUIOverlays([]); //隐藏状态栏
-
-    // AndroidWebView（TextureView）通过 Flutter 帧管线合成，不存在 SurfaceView
-    // Z-order 黑屏问题。SurfaceAndroidWebView 虽可减少帧丢失，但在 fish_redux
-    // dispatch 触发 overlay 重建时会导致 WebView 区域永久黑屏，已确认为
-    // flutter/flutter#74765 已知问题，故回退使用 AndroidWebView。
-    WebView.platform = AndroidWebView();
   }
 
   var locale = await LocalStorage.getLocale();
@@ -828,18 +821,18 @@ class _MyAppState extends State<MyApp> {
           // 冷启动 → Flutter 推入完整 URL：https://asset.dropromo.com/?target=...
           // 热启动 → Flutter 引擎只取路径部分：/?target=...（不含 host）
           // 两种形式都需要处理。
-          Uri? _deepLinkUri;
+          Uri? deepLinkUri;
           if (routeName.startsWith('http://') ||
               routeName.startsWith('https://')) {
-            _deepLinkUri = Uri.tryParse(routeName);
+            deepLinkUri = Uri.tryParse(routeName);
           } else if (routeName.startsWith('/') &&
               routeName.contains('target=')) {
             // 热启动路径形式，补全为可解析的 URI
-            _deepLinkUri = Uri.tryParse('https://placeholder.com$routeName');
+            deepLinkUri = Uri.tryParse('https://placeholder.com$routeName');
           }
 
-          if (_deepLinkUri != null) {
-            final target = _deepLinkUri.queryParameters['target'] ?? '';
+          if (deepLinkUri != null) {
+            final target = deepLinkUri.queryParameters['target'] ?? '';
 
             if (target.isNotEmpty && AppRoute.isRouteExist(target)) {
               // 无论冷启动还是热启动，统一立即弹出，交给 DeepLinkManager 处理：

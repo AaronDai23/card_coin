@@ -61,8 +61,47 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
-subprojects {
-    project.evaluationDependsOn(':app')
+
+// Fix old Flutter plugins for AGP 8+ / JDK 17 (namespace, compileSdk, JVM target).
+// Use finalizeDsl — afterEvaluate is too late to change compileSdk on AGP 8.
+subprojects { sub ->
+    def fixAndroidDsl = {
+        def androidComponents = sub.extensions.findByName('androidComponents')
+        if (androidComponents == null) {
+            return
+        }
+        androidComponents.finalizeDsl { ext ->
+            if (ext.namespace == null || ext.namespace.toString().trim().isEmpty()) {
+                def manifestFile = sub.file('src/main/AndroidManifest.xml')
+                if (manifestFile.exists()) {
+                    def pkg = new XmlParser().parse(manifestFile).attribute('package')
+                    if (pkg != null && !pkg.toString().trim().isEmpty()) {
+                        ext.namespace = pkg.toString()
+                    }
+                }
+                if ((ext.namespace == null || ext.namespace.toString().trim().isEmpty())
+                        && sub.group != null && !sub.group.toString().trim().isEmpty()) {
+                    ext.namespace = sub.group.toString()
+                }
+            }
+            ext.compileSdk = 36
+            ext.compileOptions.sourceCompatibility = JavaVersion.VERSION_17
+            ext.compileOptions.targetCompatibility = JavaVersion.VERSION_17
+        }
+    }
+    sub.pluginManager.withPlugin('com.android.library', fixAndroidDsl)
+    sub.pluginManager.withPlugin('com.android.application', fixAndroidDsl)
+    // scan_snap uses CameraX ListenableFuture but does not declare Guava.
+    sub.pluginManager.withPlugin('com.android.library') {
+        if (sub.name == 'scan_snap') {
+            sub.dependencies.add('implementation', 'com.google.guava:guava:31.1-android')
+        }
+    }
+    sub.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = '17'
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

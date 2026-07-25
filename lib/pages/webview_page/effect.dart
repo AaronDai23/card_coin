@@ -36,9 +36,6 @@ Future<void> _onInit(Action action, Context<WebviewState> ctx) async {
     showToast(lang.notSetNetworkLink);
     return;
   }
-  // SurfaceAndroidWebView（Virtual Display）让 WebView 在独立线程渲染，
-  // 不占用 Flutter 帧预算，避免加载重 H5 时大量掉帧（Quality Skipped）。
-  // WebView.platform 已在 mainCommon() 全局初始化，此处无需重复设置。
 }
 
 Future<IWalletKitService> _initWalletKitService() async {

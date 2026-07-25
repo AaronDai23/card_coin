@@ -5,7 +5,7 @@ import 'package:card_coin/custom_widget/load_image.dart';
 import 'package:card_coin/widget/base_page_loading.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_picker/picker.dart';
+import 'package:flutter_picker_plus/picker.dart';
 
 import 'action.dart';
 import 'state.dart';
