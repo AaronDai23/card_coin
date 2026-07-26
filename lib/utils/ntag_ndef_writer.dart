@@ -217,11 +217,11 @@ class NtagNdefWriter {
     return base64Encode(utf8.encode(normalized.toUpperCase()));
   }
 
-  /// Decode `uid=BASE64` (also accepts legacy `uid=/BASE64`) from a full NDEF URL.
+  /// Decode Base64 uid from query `u=` or legacy `uid=`.
   static String? decodeUidFromUrl(String url) {
     try {
       final uri = Uri.parse(url);
-      var raw = uri.queryParameters['uid'];
+      var raw = uri.queryParameters['u'] ?? uri.queryParameters['uid'];
       if (raw == null || raw.isEmpty) return null;
       if (raw.startsWith('/')) raw = raw.substring(1);
       final bytes = base64Decode(raw);
@@ -231,37 +231,143 @@ class NtagNdefWriter {
     }
   }
 
+  /// Fill Base64 into template `u=` / `uid=`.
+  ///
+  /// [ensureScheme]: when true (default), prepend `https://` if missing — for
+  /// NTAG tools / display. For CPU Type-4 NDEF system taps, pass **false**:
+  /// the applet / URI prefix `0x04` already means `https://`; writing a full
+  /// `https://…` URL causes `https://https://…` and Base64 `=` corruption.
   static String buildFullNdefUrl({
     required String domainUrl,
     required String uidHex,
+    bool ensureScheme = true,
   }) {
-    var base = domainUrl.trim();
+    final rawDomain = domainUrl.trim();
+    var base = _normalizeDomain(rawDomain, ensureScheme: ensureScheme);
     if (base.isEmpty) {
       throw ArgumentError('domainUrl is empty');
     }
-    if (!base.startsWith('http://') && !base.startsWith('https://')) {
-      base = 'https://$base';
-    }
 
     final uidValue = encodeUidParam(uidHex);
+    print('[NDEF] buildFullNdefUrl uidHex=$uidHex base64=$uidValue ensureScheme=$ensureScheme');
+    print('[NDEF] buildFullNdefUrl rawDomain=$rawDomain');
+    print('[NDEF] buildFullNdefUrl normalized=$base');
 
-    // Template may end with `uid=` or legacy `uid=/` — normalize to `uid=` + BASE64.
-    if (RegExp(r'[?&]uid=/?$').hasMatch(base)) {
-      if (base.endsWith('uid=/')) {
-        return '${base.substring(0, base.length - 1)}$uidValue';
-      }
-      return '$base$uidValue';
+    if (RegExp(r'[?&]u=').hasMatch(base)) {
+      base = base.replaceFirstMapped(
+        RegExp(r'([?&])u=[^&]*'),
+        (m) => '${m[1]}u=$uidValue',
+      );
+      base = base.replaceAll(RegExp(r'&uid=[^&]*'), '');
+      base = base.replaceFirst(RegExp(r'\?uid=[^&]*&'), '?');
+      base = base.replaceFirst(RegExp(r'\?uid=[^&]*$'), '');
+      print('[NDEF] buildFullNdefUrl via u= → $base');
+      return base;
     }
 
     if (RegExp(r'[?&]uid=').hasMatch(base)) {
-      final uri = Uri.parse(base);
-      final params = Map<String, String>.from(uri.queryParameters);
-      params['uid'] = uidValue;
-      return uri.replace(queryParameters: params).toString();
+      final out = base.replaceFirstMapped(
+        RegExp(r'([?&])uid=[^&]*'),
+        (m) => '${m[1]}uid=$uidValue',
+      );
+      print('[NDEF] buildFullNdefUrl via uid= → $out');
+      return out;
     }
 
     final sep = base.contains('?') ? '&' : '?';
-    return '$base${sep}uid=$uidValue';
+    final out = '$base${sep}u=$uidValue';
+    print('[NDEF] buildFullNdefUrl append u= → $out');
+    return out;
+  }
+
+  /// CPU Type-4 NDEF store: scheme-less template with **empty** `u=` / `uid=`.
+  ///
+  /// Applet `a2.2.1.*` always appends `/BASE64(uid)` when building the system
+  /// NDEF URI. So:
+  /// - store `...?uid=`  → phone opens `...?uid=/BASE64=`  (legacy, one value)
+  /// - store `...?uid=X` → phone opens `...?uid=X/BASE64=` (doubled — avoid)
+  /// Removing the slash requires an applet change (fill `uid=BASE64` not `uid=/BASE64`).
+  static String buildCpuType4NdefUrl({
+    required String domainUrl,
+    required String uidHex,
+  }) {
+    // uidHex kept for API symmetry / logging; applet injects Base64 on tap.
+    var base = stripUrlScheme(domainUrl.trim());
+    if (base.isEmpty) {
+      throw ArgumentError('domainUrl is empty');
+    }
+    print('[NDEF] CPU Type4 template uidHex=$uidHex (applet will append /BASE64)');
+    print('[NDEF] CPU Type4 rawDomain=$domainUrl → base=$base');
+
+    if (RegExp(r'[?&]u=').hasMatch(base)) {
+      base = base.replaceFirstMapped(
+        RegExp(r'([?&])u=[^&]*'),
+        (m) => '${m[1]}u=',
+      );
+      base = base.replaceAll(RegExp(r'&uid=[^&]*'), '');
+      base = base.replaceFirst(RegExp(r'\?uid=[^&]*&'), '?');
+      base = base.replaceFirst(RegExp(r'\?uid=[^&]*$'), '');
+      print('[NDEF] CPU Type4 via u= → $base');
+      return base;
+    }
+
+    if (RegExp(r'[?&]uid=').hasMatch(base)) {
+      final out = base.replaceFirstMapped(
+        RegExp(r'([?&])uid=[^&]*'),
+        (m) => '${m[1]}uid=',
+      );
+      print('[NDEF] CPU Type4 via uid= → $out');
+      return out;
+    }
+
+    final sep = base.contains('?') ? '&' : '?';
+    final out = '$base${sep}uid=';
+    print('[NDEF] CPU Type4 append uid= → $out');
+    return out;
+  }
+
+  /// Strip `http(s)://` — CPU Type-4 NDEF URI abbreviation supplies the scheme.
+  static String stripUrlScheme(String url) {
+    var s = url.trim();
+    s = s.replaceFirst(RegExp(r'^https://', caseSensitive: false), '');
+    s = s.replaceFirst(RegExp(r'^http://', caseSensitive: false), '');
+    s = s.replaceFirst(RegExp(r'^https//', caseSensitive: false), '');
+    s = s.replaceFirst(RegExp(r'^http//', caseSensitive: false), '');
+    return s;
+  }
+
+  static String _normalizeDomain(String raw, {required bool ensureScheme}) {
+    if (raw.isEmpty) return raw;
+    var base = raw;
+    // Fix broken schemes first.
+    base = base.replaceFirst(RegExp(r'^https//', caseSensitive: false), 'https://');
+    base = base.replaceFirst(RegExp(r'^http//', caseSensitive: false), 'http://');
+    base = base.replaceFirstMapped(
+      RegExp(r'^https:/([^/])', caseSensitive: false),
+      (m) => 'https://${m[1]}',
+    );
+    base = base.replaceFirstMapped(
+      RegExp(r'^http:/([^/])', caseSensitive: false),
+      (m) => 'http://${m[1]}',
+    );
+    base = base.replaceFirst(
+      RegExp(r'^https://https:?/+', caseSensitive: false),
+      'https://',
+    );
+    base = base.replaceFirst(
+      RegExp(r'^http://http:?/+', caseSensitive: false),
+      'http://',
+    );
+
+    if (ensureScheme) {
+      if (!base.startsWith('http://') && !base.startsWith('https://')) {
+        base = 'https://$base';
+      }
+    } else {
+      // CPU / Type-4: never store scheme on card.
+      base = stripUrlScheme(base);
+    }
+    return base;
   }
 
   static List<String> parseAarPackages(String? ndefAar) {

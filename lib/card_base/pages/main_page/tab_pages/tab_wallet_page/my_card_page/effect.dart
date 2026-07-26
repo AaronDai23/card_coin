@@ -17,6 +17,7 @@ import 'package:card_coin/custom_widget/progress_dialog/progress_dialog.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
 import 'package:card_coin/utils/date_util.dart';
 import 'package:card_coin/utils/number_util.dart';
+import 'package:card_coin/utils/ntag_ndef_writer.dart';
 import 'package:card_coin/utils/scan_util.dart';
 import 'package:card_coin/utils/startup_time.dart';
 import 'package:chipcore_sdk/src/demo/utils/scan_util.dart' as chip_scan;
@@ -79,44 +80,11 @@ Effect<MyCardState>? buildEffect() {
 }
 
 Future<void> _onInit(Action action, Context<MyCardState> ctx) async {
-  // ctx.dispatch(MyCardActionCreator.onLoadData());
-  ctx.state.domainUrl = await _loadDomain(ctx);
-  print("ndefdmoma:${ctx.state.domainUrl}");
-  print("ndefdmoma_syncUid:${ctx.state.isNeedSyncUid}");
-  if (ctx.state.domainUrl == null) {
-    // domain加载失败时保持扫卡按钮状态，不进入错误页
-    return;
-  }
+  // Domain/AAR must be fetched with the real card uid mid-scan
+  // (see scanWithLiveSmartCardConfig). Do not preload without uid.
   if (ctx.state.taskItemId != null) {
     ctx.dispatch(MyCardActionCreator.onScanCardClick());
   }
-}
-
-Future<String?> _loadDomain(Context<MyCardState> ctx) async {
-  var params = <String, dynamic>{};
-  String? cardUuid = await LocalStorage.getCardUuid();
-  if (cardUuid != null) {
-    params['uid'] = cardUuid;
-  }
-  final result = await HttpManager.getInstance()
-      .post(NetworkAddress.smartCardConfig, null, data: params);
-
-  // return "";
-  if (result.isSuccess) {
-    ctx.state.isNeedSyncUid = result.data['isNeedSyncUid'] ?? false;
-    ctx.state.ndefAAR = result.data['ndefAAR'] ?? "";
-    return result.data['ndefDomain'] ?? "";
-  }
-
-  showDialog(
-      context: ctx.context,
-      builder: (context) {
-        return ZenggeTextAlertDialog(result.message);
-      }).then((value) async {
-    // ctx.state.domainUrl ??= await _loadDomain();
-    // ctx.dispatch(MyCardActionCreator.onLoadData());
-  });
-  return null;
 }
 
 Future<void> _onLoadData(Action action, Context<MyCardState> ctx) async {
@@ -689,16 +657,12 @@ Future<void> _onRemovedClick(Action action, Context<MyCardState> ctx) async {
 }
 
 Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
-  // ProgressDialog pr = ProgressDialog(ctx.context);
-  // pr.show();
-  ctx.state.domainUrl = await _loadDomain(ctx);
-  // pr.hide();
-  // if (ctx.state.domainUrl == null) {
-  //   // 域名加载失败（如无网络），恢复页面状态，不继续执行扫卡流程
-  //   ctx.dispatch(
-  //       MyCardActionCreator.onLoadSuccess(cardDetail: ctx.state.cardDetail));
-  //   return;
-  // }
+  // Flow (NTAG + CPU, one NFC dialog):
+  // 1) native reads real tag uid
+  // 2) Flutter POST smartCard/config with **that** uid → this card's ndefDomain
+  // 3) build URL from that domain + Base64(tag uid)
+  // 4) native writes NDEF on the same connection
+  // Each card may have a different bound domain — never reuse another card's.
 
   ///弹出窗口前要把之前的卡信息内容移除
   if (ctx.state.cardDetail != null) {
@@ -713,16 +677,111 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
     return;
   }
   ctx.state.lastClickedTime = now;
-  String? cardUuid = await LocalStorage.getCardUuid();
-  print("_onScanCardClick-cardUuid:$cardUuid");
 
-  // Single ChipCore dialog: SDK detects NTAG vs CPU and writes accordingly.
-  final chipResp = await chip_scan.ScanUtil.scanOnly(
+  final chipResp = await chip_scan.ScanUtil.scanWithLiveSmartCardConfig(
     checkLock: true,
     needSyncUid: true,
-    ndefLink: ctx.state.domainUrl,
-    ndefAar: ctx.state.ndefAAR,
+    fetchConfig: (tagUid) async {
+      // Always request config for the tag on the reader (per-card domain).
+      // Backend stores uid uppercase — match that for lookup.
+      final requestUid = tagUid.trim().toUpperCase();
+      print('[NDEF][CONFIG] ========== smartCard/config begin ==========');
+      print('[NDEF][CONFIG] tagUid(raw)=$tagUid');
+      print('[NDEF][CONFIG] requestUid=$requestUid');
+      final result = await HttpManager.getInstance().post(
+        NetworkAddress.smartCardConfig,
+        null,
+        data: {'uid': requestUid},
+      );
+      if (!result.isSuccess) {
+        print('[NDEF][CONFIG] FAIL message=${result.message}');
+        throw Exception(
+          result.message.isNotEmpty
+              ? result.message
+              : 'smartCard/config failed',
+        );
+      }
+      final data = result.data;
+      print('[NDEF][CONFIG] raw data=$data');
+      final domain = (data is Map
+              ? (data['ndefDomain'] ?? data['ndef_domain'])
+              : null)
+          ?.toString() ??
+          '';
+      final ndefHost =
+          (data is Map ? (data['ndefHost'] ?? data['ndef_host']) : null)
+              ?.toString() ??
+          '';
+      final ndefParameter = (data is Map
+              ? (data['ndefParameter'] ?? data['ndef_parameter'])
+              : null)
+          ?.toString() ??
+          '';
+      final aar = (data is Map
+              ? (data['ndefAAR'] ?? data['ndefAar'] ?? data['ndef_aar'])
+              : null)
+          ?.toString() ??
+          '';
+      final sync = data is Map
+          ? (data['isNeedSyncUid'] ??
+              data['isNeedSyncUID'] ??
+              data['syncUid']) as bool?
+          : null;
+      final cardTech = (data is Map
+              ? (data['cardTech'] ?? data['card_tech'])
+              : null)
+          ?.toString() ??
+          '';
+      print('[NDEF][CONFIG] cardTech=$cardTech');
+      print('[NDEF][CONFIG] ndefDomain=$domain');
+      print('[NDEF][CONFIG] ndefHost=$ndefHost');
+      print('[NDEF][CONFIG] ndefParameter=$ndefParameter');
+      print('[NDEF][CONFIG] ndefAAR=$aar');
+      print('[NDEF][CONFIG] syncUid=$sync');
+      if (domain.trim().isEmpty) {
+        print('[NDEF][CONFIG] FAIL ndefDomain empty');
+        throw Exception('ndefDomain is empty');
+      }
+
+      final isCpu = cardTech.toUpperCase() == 'CPU';
+      // CPU Type-4: empty uid= (applet appends /BASE64).
+      // NTAG: this card's domain + Base64(this tag uid).
+      final fullUrl = isCpu
+          ? NtagNdefWriter.buildCpuType4NdefUrl(
+              domainUrl: domain,
+              uidHex: requestUid,
+            )
+          : NtagNdefWriter.buildFullNdefUrl(
+              domainUrl: domain,
+              uidHex: requestUid,
+              ensureScheme: false,
+            );
+      print('[NDEF][CONFIG] isCpu=$isCpu');
+      print('[NDEF][CONFIG] fullUrl(to write)=$fullUrl');
+      print('[NDEF][CONFIG] ========== smartCard/config end ==========');
+      ctx.state.domainUrl = domain;
+      ctx.state.ndefAAR = aar;
+      if (sync != null) ctx.state.isNeedSyncUid = sync;
+      return chip_scan.SmartCardNdefConfig(
+        ndefDomain: fullUrl,
+        ndefAar: aar,
+        isNeedSyncUid: sync,
+      );
+    },
   );
+  print(
+    '[NDEF] step5 scan done success=${chipResp.isSuccess} '
+    'cardId=${chipResp.data?.cardId} msg=${chipResp.message} '
+    'code=${chipResp.errorCode}',
+  );
+  if (chipResp.data?.data != null && chipResp.data!.data!.isNotEmpty) {
+    try {
+      final written = String.fromCharCodes(chipResp.data!.data!);
+      print('[NDEF] step5 native returned data(as utf8)=$written');
+    } catch (_) {
+      print('[NDEF] step5 native returned data bytes=${chipResp.data!.data}');
+    }
+  }
   final scanResponse = ScanResponse(
     chipResp.isSuccess,
     isActivated: chipResp.data?.isActivated,
@@ -1190,10 +1249,7 @@ Future<void> _onReloadMainData(Action action, Context<MyCardState> ctx) async {
 
 Future<void> _onMyReloadMainData(
     Action action, Context<MyCardState> ctx) async {
-  ctx.state.domainUrl ??= await _loadDomain(ctx);
-  if (ctx.state.domainUrl != null) {
-    ctx.dispatch(MyCardActionCreator.onLoadData());
-  }
+  ctx.dispatch(MyCardActionCreator.onLoadData());
 }
 
 _onMingeCardClick(Action action, Context<MyCardState> ctx) {
