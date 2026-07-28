@@ -7,6 +7,7 @@ import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:card_coin/managers/isodep_reader_manager.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
+import 'package:card_coin/utils/mifare_classic_util.dart';
 import 'package:card_coin/utils/ntag_ndef_writer.dart';
 import 'package:card_coin/utils/string_util.dart';
 import 'package:card_coin/widget/custom_alert_dialog.dart';
@@ -113,7 +114,7 @@ List<HealthCheckInfo> _cpuCheckList(AppLanguageResource languageResource) {
   ];
 }
 
-/// NTAG health check: UID + serial number + NDEF URL + write-password lock.
+/// NTAG / Classic health check: UID + serial number + NDEF URL + write lock.
 List<HealthCheckInfo> _ntagCheckList(AppLanguageResource languageResource) {
   return [
     HealthCheckInfo(name: 'UID', type: HealthCheckType.uid),
@@ -215,8 +216,15 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
         }
       }
 
-      // NTAG: no IsoDep → detect via GET_VERSION / CC / ATQA; then health check.
+      // Classic / NTAG: no IsoDep → health check (UID / NDEF / write lock).
       if (isoDepAndroid == null && isoDepIos == null) {
+        final classic = MifareClassic.from(tag);
+        if (classic != null) {
+          await _runClassicHealthCheck(ctx, tag, classic);
+          ctx.state.timer?.cancel();
+          await _finishCheckSession();
+          return;
+        }
         var model = await NtagNdefWriter.detectModel(tag);
         if (model == NtagModel.unknown && NtagNdefWriter.looksLikeNtag(tag)) {
           // Oppo often loses GET_VERSION; still run NTAG checklist as 213.
@@ -237,8 +245,9 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
       }
 
       if (isoDepAndroid != null || isoDepIos != null) {
-        // Restore full CPU checklist if previous scan was NTAG.
+        // Restore full CPU checklist if previous scan was NTAG / Classic.
         if (ctx.state.cardTech == 'NTAG' ||
+            ctx.state.cardTech == 'CLASSIC' ||
             ctx.state.checkList.any((e) => e.type == HealthCheckType.uid)) {
           ctx.state.cardTech = 'CPU';
           ctx.dispatch(CheckCardActionCreator.onInitTask(
@@ -651,6 +660,74 @@ Future<void> _runNtagHealthCheck(
     print('NTAG health check error: $e');
   }
 
+  await _fillMemoryCardHealthResults(
+    ctx,
+    list: list,
+    uidHex: uidHex,
+    ndefUrl: ndefUrl,
+    locked: locked,
+    lockUnknown: false,
+  );
+}
+
+/// Mifare Classic path: same checklist as NTAG; lock = KeyB + access 787788.
+Future<void> _runClassicHealthCheck(
+  Context<CheckCardState> ctx,
+  NfcTag tag,
+  MifareClassic classic,
+) async {
+  final languageResource = ctx.state.languageResource!;
+  ctx.state.cardTech = 'CLASSIC';
+  var list = _ntagCheckList(languageResource)
+      .map((e) => e.copyWith(status: HealthStatus.process))
+      .toList();
+  ctx.dispatch(CheckCardActionCreator.onInitTask(list));
+
+  String uidHex = '';
+  String? ndefUrl;
+  var locked = false;
+  var lockUnknown = false;
+  var lockLabel = 'No';
+
+  try {
+    uidHex = MifareClassicUtil.readUidHex(tag) ??
+        NtagNdefWriter.readTagUidHex(tag) ??
+        '';
+    // Read NDEF before KeyB probe — failed Classic auth can drop the session.
+    ndefUrl = await MifareClassicUtil.readNdefUrl(tag);
+    final probe = await MifareClassicUtil.probeWriteProtect(classic);
+    locked = probe.isLocked;
+    lockUnknown = probe.label == 'Unknown';
+    lockLabel = probe.label;
+    print(
+      'Classic health: uid=$uidHex locked=$locked '
+      'access=${probe.accessHex} detail=${probe.detail} ndef=${ndefUrl ?? ''}',
+    );
+  } catch (e) {
+    print('Classic health check error: $e');
+  }
+
+  await _fillMemoryCardHealthResults(
+    ctx,
+    list: list,
+    uidHex: uidHex,
+    ndefUrl: ndefUrl,
+    locked: locked,
+    lockUnknown: lockUnknown,
+    lockResultOverride: lockLabel,
+  );
+}
+
+Future<void> _fillMemoryCardHealthResults(
+  Context<CheckCardState> ctx, {
+  required List<HealthCheckInfo> list,
+  required String uidHex,
+  required String? ndefUrl,
+  required bool locked,
+  required bool lockUnknown,
+  String? lockResultOverride,
+}) async {
+  final languageResource = ctx.state.languageResource!;
   final cardId = uidHex.replaceAll(' ', '').toUpperCase();
   HealthStatus cardNumberStatus = HealthStatus.failed;
   String cardNumberResult = 'No';
@@ -673,7 +750,7 @@ Future<void> _runNtagHealthCheck(
         }
       }
     } catch (e) {
-      print('NTAG getCardNumber error: $e');
+      print('memory-card getCardNumber error: $e');
     }
   }
 
@@ -698,8 +775,9 @@ Future<void> _runNtagHealthCheck(
       );
     } else if (item.type == HealthCheckType.cardLock) {
       list[i] = item.copyWith(
-        status: HealthStatus.health,
-        result: locked ? 'Yes' : 'No',
+        status: lockUnknown ? HealthStatus.unHealth : HealthStatus.health,
+        result: lockResultOverride ??
+            (lockUnknown ? 'Unknown' : (locked ? 'Yes' : 'No')),
       );
     }
   }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/widgets.dart' hide Action;
 import '../../../cache/local_storage.dart';
 import 'package:fish_redux/fish_redux.dart';
 import '../../../utils/startup_time.dart';
@@ -10,10 +12,8 @@ import '../../bean/banner_bean.dart';
 import '../../bean/page_categroy_item.dart';
 import '../../utils/routes_util.dart';
 import 'action.dart';
+import 'scan_login_prefetch.dart';
 import 'state.dart';
-
-const String _scanLoginBannerCacheKey = 'scan_login_banner_cache_v1';
-const String _scanLoginButtonCacheKey = 'scan_login_button_cache_v1';
 
 Effect<ScanLoginState>? buildEffect() {
   return combineEffects(<Object, Effect<ScanLoginState>>{
@@ -27,7 +27,8 @@ Effect<ScanLoginState>? buildEffect() {
 
 Future<void> _onInit(Action action, Context<ScanLoginState> ctx) async {
   StartupTime.printElapsed('scan_login_init');
-  await _restoreScanLoginCache(ctx);
+  // Splash may already have warmed memory/disk; sync UI from memory immediately.
+  unawaited(_restoreScanLoginCache(ctx));
   ctx.dispatch(ScanLoginActionCreator.onLoadData());
 }
 
@@ -63,9 +64,61 @@ void _onDisponse(Action action, Context<ScanLoginState> ctx) async {
   ctx.state.controller.dispose();
 }
 
+void _prefetchBannerImages(BuildContext context, List<BannerItem> banners) {
+  for (final item in banners) {
+    final url = item.fileUrl?.trim();
+    if (url == null || !url.startsWith('http')) continue;
+    unawaited(precacheImage(CachedNetworkImageProvider(url), context));
+  }
+}
+
+void _publishScanLogin(
+  Context<ScanLoginState> ctx, {
+  required List<BannerItem> banners,
+  required List<PageCategoryItem> buttons,
+  required bool persistBanners,
+  required bool persistButtons,
+}) {
+  final enableLogin =
+      buttons.any((element) => element.target == 'multipleLoginPage');
+  ctx.state.showLoginButton = !enableLogin;
+  cacheScanLoginData(banners, buttons);
+  _prefetchBannerImages(ctx.context, banners);
+
+  if (persistBanners && banners.isNotEmpty) {
+    unawaited(LocalStorage.saveString(ScanLoginPrefetch.bannerCacheKey,
+        json.encode(banners.map((e) => e.toJson()).toList())));
+  }
+  if (persistButtons) {
+    unawaited(LocalStorage.saveString(ScanLoginPrefetch.buttonCacheKey,
+        json.encode(buttons.map((e) => e.toJson()).toList())));
+  }
+
+  ctx.dispatch(ScanLoginActionCreator.onLoadSuccess(banners, buttons));
+}
+
 Future<void> _onloadData(Action action, Context<ScanLoginState> ctx) async {
-  final fallbackBanners = buildFallbackBanners();
-  var banners = ctx.state.banners ?? fallbackBanners;
+  // If Splash already finished prefetch, memory cache is ready — refresh in bg.
+  if (ScanLoginPrefetch.hasHttpBannersReady &&
+      _cachedHasHttp(ctx.state.banners)) {
+    // Still refresh network in background via shared prefetcher.
+    unawaited(ScanLoginPrefetch.start(context: ctx.context).then((_) {
+      final banners = peekCachedScanLoginBanners();
+      final buttons = peekCachedScanLoginButtons();
+      if (banners != null && buttons != null) {
+        _publishScanLogin(
+          ctx,
+          banners: banners,
+          buttons: buttons,
+          persistBanners: false,
+          persistButtons: false,
+        );
+      }
+    }));
+    return;
+  }
+
+  var banners = ctx.state.banners ?? buildFallbackBanners();
   var buttons = ctx.state.buttons ?? buildFallbackButtons();
   bool buttonRequestFailed = false;
   bool buttonRequestSuccess = false;
@@ -82,6 +135,13 @@ Future<void> _onloadData(Action action, Context<ScanLoginState> ctx) async {
       final remoteBanners = BannerResponse.fromJson(bannerResult.data).items;
       if (remoteBanners != null && remoteBanners.isNotEmpty) {
         banners = remoteBanners;
+        _publishScanLogin(
+          ctx,
+          banners: banners,
+          buttons: buttons,
+          persistBanners: true,
+          persistButtons: false,
+        );
       }
     }
   } catch (e) {
@@ -110,27 +170,24 @@ Future<void> _onloadData(Action action, Context<ScanLoginState> ctx) async {
     buttons = buildFailureFallbackButtons();
   }
 
-  final enableLogin =
-      buttons.any((element) => element.target == 'multipleLoginPage');
-  ctx.state.showLoginButton = !enableLogin;
-  cacheScanLoginData(banners, buttons);
+  _publishScanLogin(
+    ctx,
+    banners: banners,
+    buttons: buttons,
+    persistBanners: true,
+    persistButtons: buttonRequestSuccess,
+  );
+}
 
-  if (banners.isNotEmpty) {
-    unawaited(LocalStorage.saveString(_scanLoginBannerCacheKey,
-        json.encode(banners.map((e) => e.toJson()).toList())));
-  }
-  if (buttonRequestSuccess) {
-    unawaited(LocalStorage.saveString(_scanLoginButtonCacheKey,
-        json.encode(buttons.map((e) => e.toJson()).toList())));
-  }
-
-  ctx.dispatch(ScanLoginActionCreator.onLoadSuccess(banners, buttons));
+bool _cachedHasHttp(List<BannerItem>? banners) {
+  if (banners == null || banners.isEmpty) return false;
+  return (banners.first.fileUrl?.trim() ?? '').startsWith('http');
 }
 
 Future<void> _restoreScanLoginCache(Context<ScanLoginState> ctx) async {
   final results = await Future.wait([
-    LocalStorage.getString(_scanLoginBannerCacheKey),
-    LocalStorage.getString(_scanLoginButtonCacheKey),
+    LocalStorage.getString(ScanLoginPrefetch.bannerCacheKey),
+    LocalStorage.getString(ScanLoginPrefetch.buttonCacheKey),
   ]);
 
   final cachedBanners = _parseBannerList(results[0]);
@@ -144,9 +201,13 @@ Future<void> _restoreScanLoginCache(Context<ScanLoginState> ctx) async {
   if ((cachedBanners.isNotEmpty || cachedButtons.isNotEmpty) &&
       mergedBanners != null &&
       mergedButtons != null) {
-    cacheScanLoginData(mergedBanners, mergedButtons);
-    ctx.dispatch(
-        ScanLoginActionCreator.onLoadSuccess(mergedBanners, mergedButtons));
+    _publishScanLogin(
+      ctx,
+      banners: mergedBanners,
+      buttons: mergedButtons,
+      persistBanners: false,
+      persistButtons: false,
+    );
   }
 }
 

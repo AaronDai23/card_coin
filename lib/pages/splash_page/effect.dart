@@ -24,6 +24,7 @@ import '../../cache/local_storage.dart';
 import '../../http/address.dart';
 import '../../http/http_manager.dart';
 import '../../widget/app_config.dart';
+import 'package:card_coin/card_base/pages/scan_login_page/scan_login_prefetch.dart';
 import 'action.dart';
 import 'state.dart';
 import 'package:collection/collection.dart';
@@ -79,6 +80,8 @@ Future<void> _onInit(Action action, Context<SplashState> ctx) async {
 
   // AppConfig.of(context) 是 InheritedWidget，必须在 initState() 完成后才能访问。
   await Future<void>.delayed(Duration.zero);
+  // 未登录首屏轮播：启动阶段预拉 banner/按钮并暖图，减轻 ScanLogin 初次白等。
+  unawaited(ScanLoginPrefetch.start(context: ctx.context));
   debugPrint(
       '[TIMING][Splash] after delayed(zero), dispatching onStartAppsFlyer, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
   StartupTime.printElapsed('splash_before_start_appsflyer');
@@ -350,6 +353,11 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
       } else {
         print(
             '[TIMING][Splash] navigating to scanLoginPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+        // Give prefetch a short window so first-open carousel is already warm.
+        await ScanLoginPrefetch.waitReady(
+          timeout: const Duration(milliseconds: 1200),
+        );
+        if (!ctx.context.mounted) return;
         Navigator.pushNamedAndRemoveUntil(
             ctx.context, 'scanLoginPage', (route) => false);
       }

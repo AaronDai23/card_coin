@@ -17,6 +17,8 @@ class ScanLoginState extends LoadPageState<ScanLoginState> {
   List<PageCategoryItem>? buttons;
   bool isScanning = false;
   bool showLoginButton = false;
+  /// False until first banner fetch/cache resolve — keep splash logo meanwhile.
+  bool bannerFetchCompleted = false;
   MethodChannel? channel;
   int counter = 0;
   @override
@@ -27,6 +29,7 @@ class ScanLoginState extends LoadPageState<ScanLoginState> {
       ..isScanning = isScanning
       ..errorMsg = errorMsg
       ..showLoginButton = showLoginButton
+      ..bannerFetchCompleted = bannerFetchCompleted
       ..loadStatus = loadStatus
       ..timer = timer
       ..counter = counter
@@ -61,19 +64,37 @@ List<PageCategoryItem> buildFailureFallbackButtons() {
   ];
 }
 
+bool _hasHttpBanners(List<BannerItem>? banners) {
+  if (banners == null || banners.isEmpty) return false;
+  final url = banners.first.fileUrl?.trim() ?? '';
+  return url.startsWith('http');
+}
+
 ScanLoginState initState(Map<String, dynamic>? args) {
   final cachedBanners = _cachedScanLoginBanners;
   final cachedButtons = _cachedScanLoginButtons;
+  final banners = (cachedBanners != null && cachedBanners.isNotEmpty)
+      ? List<BannerItem>.from(cachedBanners)
+      : buildFallbackBanners();
   return ScanLoginState()
     ..loadStatus = LoadType.loadSuccess
-    ..banners = (cachedBanners != null && cachedBanners.isNotEmpty)
-        ? List<BannerItem>.from(cachedBanners)
-        : buildFallbackBanners()
+    ..banners = banners
     ..buttons = (cachedButtons != null && cachedButtons.isNotEmpty)
         ? List<PageCategoryItem>.from(cachedButtons)
         : buildFallbackButtons()
+    ..bannerFetchCompleted = _hasHttpBanners(banners)
     ..controller = PageController();
 }
+
+List<BannerItem>? peekCachedScanLoginBanners() =>
+    _cachedScanLoginBanners == null
+        ? null
+        : List<BannerItem>.from(_cachedScanLoginBanners!);
+
+List<PageCategoryItem>? peekCachedScanLoginButtons() =>
+    _cachedScanLoginButtons == null
+        ? null
+        : List<PageCategoryItem>.from(_cachedScanLoginButtons!);
 
 void cacheScanLoginData(
     List<BannerItem> banners, List<PageCategoryItem> buttons) {

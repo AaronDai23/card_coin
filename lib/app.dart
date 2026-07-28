@@ -745,7 +745,13 @@ class _MyAppState extends State<MyApp> {
                 titleTextStyle:
                     const TextStyle(color: Colors.white, fontSize: 20))),
         builder: EasyLoading.init(
-            builder: (context, child) => Scaffold(
+            builder: (context, child) {
+              final isDark = MediaQuery.platformBrightnessOf(context) ==
+                  Brightness.dark;
+              return Scaffold(
+                  // Match splash / ScanLogin cover so route swaps don't flash
+                  // ThemeData(light) default scaffold color.
+                  backgroundColor: isDark ? Colors.black : Colors.white,
                   appBar: showNetworkException
                       ? PreferredSize(
                           preferredSize: const Size(double.infinity, 40),
@@ -797,7 +803,8 @@ class _MyAppState extends State<MyApp> {
                     },
                     child: child,
                   ),
-                )),
+                );
+            }),
         locale: globalState.languageLocale ?? const Locale('en', 'US'),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
@@ -881,6 +888,19 @@ class _MyAppState extends State<MyApp> {
                 },
               ),
               settings: settings,
+            );
+          }
+
+          if (settings.name == 'scanLoginPage') {
+            return PageRouteBuilder<Object>(
+              settings: settings,
+              opaque: true,
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+              pageBuilder: (context, animation, secondaryAnimation) {
+                return AppRoute.global
+                    .buildPage(settings.name!, settings.arguments);
+              },
             );
           }
 

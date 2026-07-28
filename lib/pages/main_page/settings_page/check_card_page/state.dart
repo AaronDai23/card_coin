@@ -15,7 +15,7 @@ class CheckCardState implements GlobalBaseState<CheckCardState> {
   int failCount = 0;
   int from = -1;
   bool fromDeepLink = false; // true 时隐藏顶部返回按钮（从浏览器 deeplink 跳入）
-  /// `CPU` | `NTAG` — set after tag detection for health report upload.
+  /// `CPU` | `NTAG` | `CLASSIC` — set after tag detection for health report upload.
   String cardTech = 'CPU';
   Timer? timer;
   // late CardInfo cardInfo;

@@ -13,7 +13,9 @@ class LoadImage extends StatelessWidget {
       this.holderImg,
       this.package,
       this.showHolder = true,
-      this.color})
+      this.color,
+      this.memCacheWidth,
+      this.memCacheHeight})
       : super(key: key);
 
   final String image;
@@ -26,6 +28,10 @@ class LoadImage extends StatelessWidget {
   final bool showHolder;
 
   final Color? color;
+
+  /// Decode / memory cache size — speeds full-screen banners a lot.
+  final int? memCacheWidth;
+  final int? memCacheHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +53,16 @@ class LoadImage extends StatelessWidget {
           imageUrl: image,
           placeholder: (context, url) => holderImg ?? const SizedBox(),
           errorWidget: (context, url, error) => holderImg ?? const SizedBox(),
-          // color: color,
+          // Avoid transparent fade that flashes scaffold bg under the image.
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
           width: width,
           height: height,
           fit: fit,
+          memCacheWidth: memCacheWidth,
+          memCacheHeight: memCacheHeight,
+          maxWidthDiskCache: memCacheWidth,
+          maxHeightDiskCache: memCacheHeight,
         );
       } else {
         return LoadAssetImage(

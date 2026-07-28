@@ -2,6 +2,8 @@ import 'package:card_coin/bean/card_info_bean.dart';
 import 'package:card_coin/bean/page_field_config_info.dart';
 import 'package:card_coin/card_base/utils/color_util.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_html/flutter_html.dart';
 
 class NonInvestmentCardSection extends StatefulWidget {
@@ -55,6 +57,14 @@ class _NonInvestmentCardSectionState extends State<NonInvestmentCardSection> {
       ColorUtil.parseHexColor(card.pageField?.backgroundColor ?? '#0000FF');
 
   Color get _primaryText => _contentTextColor;
+
+  bool get _isNtag => card.cardTech?.toUpperCase() == 'NTAG';
+
+  /// NTAG: SN sits at the bottom of this card; CPU keeps the old homepage spot.
+  bool get _showNtagSnFooter =>
+      _isNtag &&
+      pageConfig.isShowCardNo == true &&
+      card.cardNo?.isNotEmpty == true;
 
   TextStyle get _titleStyle => TextStyle(
       fontSize: 20, fontWeight: FontWeight.bold, color: _contentTextColor);
@@ -185,28 +195,50 @@ class _NonInvestmentCardSectionState extends State<NonInvestmentCardSection> {
                 Container(
                   width: cardWidth,
                   color: _contentBgColor,
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, contentBottomPadding),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    0,
+                    20,
+                    _showNtagSnFooter ? 12 : contentBottomPadding,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: _withSpacing(
-                              contentWidgets,
-                              spacing: contentItemSpacing,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: _withSpacing(
+                                  contentWidgets,
+                                  spacing: contentItemSpacing,
+                                ),
+                              ),
                             ),
                           ),
+                          if (cornerItems.isNotEmpty)
+                            const SizedBox(width: 12),
+                          _buildCornerColumn(
+                            items: cornerItems,
+                            isOnlyCardNoVisible: isOnlyCardNoVisible,
+                          ),
+                        ],
+                      ),
+                      if (_showNtagSnFooter) ...[
+                        const SizedBox(height: 12),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: _contentTextColor.withOpacity(0.12),
                         ),
-                      ),
-                      if (cornerItems.isNotEmpty) const SizedBox(width: 12),
-                      _buildCornerColumn(
-                        items: cornerItems,
-                        isOnlyCardNoVisible: isOnlyCardNoVisible,
-                      ),
+                        const SizedBox(height: 10),
+                        _buildNtagSnFooter(),
+                      ],
                     ],
                   ),
                 ),
@@ -359,14 +391,39 @@ class _NonInvestmentCardSectionState extends State<NonInvestmentCardSection> {
     return items;
   }
 
-  Widget _buildCardNo() {
-    if (pageConfig.isShowCardNo == true && card.cardNo?.isNotEmpty == true) {
-      final style = _isOnlyCardNoVisible()
-          ? _titleStyle.copyWith(fontSize: 18, height: 1.1)
-          : _titleStyle;
-      return Text(card.cardNo!, style: style, maxLines: 2);
-    }
-    return const SizedBox.shrink();
+  Widget _buildNtagSnFooter() {
+    final sn = card.cardNo!;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'SN: $sn',
+            style: TextStyle(
+              fontSize: 13,
+              color: _contentTextColor.withOpacity(0.65),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: sn));
+            EasyLoading.showToast('Copied!');
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Image.asset(
+              'assets/images/content_copy.png',
+              width: 16,
+              height: 16,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   bool _isOnlyCardNoVisible() {

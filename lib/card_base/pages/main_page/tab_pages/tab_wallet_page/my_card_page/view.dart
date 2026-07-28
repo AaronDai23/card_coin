@@ -875,9 +875,7 @@ Widget buildInActiveView(
                                                     CrossAxisAlignment
                                                         .start, // 加这一行！
                                                 children: [
-                                                  if (state.pageConfig
-                                                          .isShowCardNo ==
-                                                      true)
+                                                  if (_showLegacySn(state))
                                                     Row(children: [
                                                       const Text(
                                                         "Card number:",
@@ -896,13 +894,8 @@ Widget buildInActiveView(
                                                         width: 5,
                                                       ),
                                                       Text(
-                                                          state.cardDetail
-                                                                      ?.cardNo !=
-                                                                  null
-                                                              ? state
-                                                                  .cardDetail!
-                                                                  .cardNo!
-                                                              : "",
+                                                          state.cardDetail!
+                                                              .cardNo!,
                                                           textAlign:
                                                               TextAlign.left,
                                                           style: textStyle),
@@ -911,9 +904,7 @@ Widget buildInActiveView(
                                                     const SizedBox(
                                                       height: 0,
                                                     ),
-                                                  if (state.pageConfig
-                                                          .isShowCardNo ==
-                                                      true)
+                                                  if (_showLegacySn(state))
                                                     const SizedBox(
                                                       height: 5,
                                                     )
@@ -1856,9 +1847,22 @@ bool isShowVCCard(MyCardState state) {
       (state.pageConfig.isShowCardDescription == true &&
           state.cardDetail?.description?.isNotEmpty == true) ||
       (state.pageConfig.isShowTotalBalance == true &&
-          state.sumBalanceInfo?.usd != null);
+          state.sumBalanceInfo?.usd != null) ||
+      // NTAG SN lives at the bottom of this card — keep the section visible.
+      (_isNtagCard(state) &&
+          state.pageConfig.isShowCardNo == true &&
+          state.cardDetail?.cardNo?.isNotEmpty == true);
   return result;
 }
+
+bool _isNtagCard(MyCardState state) =>
+    state.cardDetail?.cardTech?.toUpperCase() == 'NTAG';
+
+/// CPU (and unknown): keep SN in the previous homepage spots.
+bool _showLegacySn(MyCardState state) =>
+    !_isNtagCard(state) &&
+    state.pageConfig.isShowCardNo == true &&
+    state.cardDetail?.cardNo?.isNotEmpty == true;
 
 Widget getBottomButon(
     Dispatch dispatch, MyCardState state, ViewService viewService) {
@@ -3227,8 +3231,7 @@ Widget _showTotalInfoView(
               ],
             ),
           ),
-        if (state.pageConfig.isShowCardNo == true &&
-            state.cardDetail?.cardNo?.isNotEmpty == true)
+        if (_showLegacySn(state))
           Padding(
             padding: const EdgeInsets.only(left: 15, bottom: 10, right: 15),
             child: Row(

@@ -20,6 +20,7 @@ ScanLoginState _onLoadSuccess(ScanLoginState state, Action action) {
   final ScanLoginState newState = state.clone()
     ..banners = action.payload['banners']
     ..buttons = action.payload['buttons']
+    ..bannerFetchCompleted = true
     ..loadStatus = LoadType.loadSuccess;
   return newState;
 }

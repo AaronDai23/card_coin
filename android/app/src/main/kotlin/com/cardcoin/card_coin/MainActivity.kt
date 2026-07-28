@@ -6,6 +6,7 @@ import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.os.PersistableBundle
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.chipcore.sdk.flutter.ChipCoreBlockchainApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -53,6 +54,9 @@ class MainActivity: FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must run before super.onCreate — otherwise MIUI/Harmony often show a blank splash.
+        installSplashScreen()
+
         val i = intent
         android.util.Log.d("NFC_DEBUG",
             "onCreate action=${i?.action} data=${i?.data} extras=${i?.extras?.keySet()}")
