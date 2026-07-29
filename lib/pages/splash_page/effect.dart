@@ -358,6 +358,7 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
           timeout: const Duration(milliseconds: 1200),
         );
         if (!ctx.context.mounted) return;
+        // Opaque white ScanLogin route (see app.dart) — seamless over splash logo.
         Navigator.pushNamedAndRemoveUntil(
             ctx.context, 'scanLoginPage', (route) => false);
       }

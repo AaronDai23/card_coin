@@ -812,7 +812,6 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
       final cardUuid = scanResponse.data?.trim();
       if (cardUuid == null || cardUuid.isEmpty) {
         print("_onScanCardClick success but cardId empty, skip detail request");
-        showToast('扫卡成功但未获取到卡片ID，请重试');
         _restoreMyCardPageAfterScanAbort(action, ctx);
         return;
       }
@@ -865,15 +864,13 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
         ctx.dispatch(MyCardActionCreator.onLoadCardInfo(cardUuid));
       } catch (e, st) {
         print("_onScanCardClick post-success handling failed: $e\n$st");
-        showToast('扫卡处理失败，请重试');
         _restoreMyCardPageAfterScanAbort(action, ctx);
       }
     } else {
       print("write ndef fail");
-      final isCancelled = scanResponse.message == "Session invalidated by user" ||
-          scanResponse.message == "System resource unavailable" ||
-          scanResponse.message == "用户已取消";
-      if (!isCancelled) {
+      if (scanResponse.message != "Session invalidated by user" &&
+          scanResponse.message != "System resource unavailable" &&
+          scanResponse.message != "用户已取消") {
         if (scanResponse.message != null && scanResponse.message!.length <= 50) {
           await ScanUtil.unlockTip(
               scanResponse,
@@ -881,10 +878,6 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
               scanResponse.data == null
                   ? ctx.state.cardDetail?.uid
                   : scanResponse.data!);
-        } else {
-          showToast(scanResponse.message?.isNotEmpty == true
-              ? scanResponse.message!
-              : '扫卡失败，请重试');
         }
       }
       // 无论取消还是错误，都需要从现有 cardDetail 恢复 pageConfig，
@@ -893,8 +886,6 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
     }
   } catch (e, st) {
     print("_onScanCardClick scan failed: $e\n$st");
-    final msg = e.toString().replaceFirst('Exception: ', '').trim();
-    showToast(msg.isNotEmpty && msg.length <= 50 ? msg : '扫卡失败，请重试');
     _restoreMyCardPageAfterScanAbort(action, ctx);
   }
 }

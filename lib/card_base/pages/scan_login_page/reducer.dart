@@ -1,4 +1,3 @@
-
 import 'package:fish_redux/fish_redux.dart';
 
 import '../../../widget/base_page_loading.dart';
@@ -12,6 +11,7 @@ Reducer<ScanLoginState>? buildReducer() {
       ScanLoginAction.loadFailure: _onLoadFailure,
       ScanLoginAction.showLoading: _onShowLoading,
       ScanLoginAction.updateScanning: _onUpdateScanning,
+      ScanLoginAction.endSplashLogoBridge: _onEndSplashLogoBridge,
     },
   );
 }
@@ -42,3 +42,7 @@ ScanLoginState _onUpdateScanning(ScanLoginState state, Action action) {
   return newState;
 }
 
+ScanLoginState _onEndSplashLogoBridge(ScanLoginState state, Action action) {
+  if (!state.splashLogoBridge) return state;
+  return state.clone()..splashLogoBridge = false;
+}

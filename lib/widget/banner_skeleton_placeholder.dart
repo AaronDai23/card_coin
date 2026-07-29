@@ -1,41 +1,42 @@
 import 'package:flutter/material.dart';
 
 /// Full-screen skeleton with shimmer — used as ScanLogin banner placeholder.
+/// Always light (white) theme — does not follow system dark mode.
 class BannerSkeletonPlaceholder extends StatelessWidget {
   const BannerSkeletonPlaceholder({super.key});
 
+  static const Color _bg = Color(0xFFFFFFFF);
+  static const Color _base = Color(0xFFE0E2E6);
+  static const Color _highlight = Color(0xAAFFFFFF);
+
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final bg = isDark ? const Color(0xFF121212) : const Color(0xFFF2F3F5);
-
-    return ColoredBox(
-      color: bg,
+    return const ColoredBox(
+      color: _bg,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+          padding: EdgeInsets.fromLTRB(24, 48, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 flex: 5,
                 child: _ShimmerBox(radius: 20),
               ),
-              const SizedBox(height: 28),
-              const _ShimmerBox(height: 18, radius: 9),
-              const SizedBox(height: 14),
-              const FractionallySizedBox(
+              SizedBox(height: 28),
+              _ShimmerBox(height: 18, radius: 9),
+              SizedBox(height: 14),
+              FractionallySizedBox(
                 widthFactor: 0.55,
                 child: _ShimmerBox(height: 16, radius: 8),
               ),
-              const SizedBox(height: 12),
-              const FractionallySizedBox(
+              SizedBox(height: 12),
+              FractionallySizedBox(
                 widthFactor: 0.72,
                 child: _ShimmerBox(height: 16, radius: 8),
               ),
-              const Spacer(flex: 2),
-              const Row(
+              Spacer(flex: 2),
+              Row(
                 children: [
                   Expanded(
                     child: _ShimmerBox(height: 44, radius: 10),
@@ -90,11 +91,6 @@ class _ShimmerBoxState extends State<_ShimmerBox>
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final base = isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE0E2E6);
-    final highlight =
-        isDark ? const Color(0x44FFFFFF) : const Color(0xAAFFFFFF);
     final borderRadius = BorderRadius.circular(widget.radius);
 
     return AnimatedBuilder(
@@ -103,7 +99,7 @@ class _ShimmerBoxState extends State<_ShimmerBox>
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: base,
+          color: BannerSkeletonPlaceholder._base,
           borderRadius: borderRadius,
         ),
       ),
@@ -117,10 +113,10 @@ class _ShimmerBoxState extends State<_ShimmerBox>
               return LinearGradient(
                 begin: Alignment(-1.0 + shift, 0),
                 end: Alignment(1.0 + shift, 0),
-                colors: [
-                  const Color(0x00FFFFFF),
-                  highlight,
-                  const Color(0x00FFFFFF),
+                colors: const [
+                  Color(0x00FFFFFF),
+                  BannerSkeletonPlaceholder._highlight,
+                  Color(0x00FFFFFF),
                 ],
                 stops: const [0.2, 0.5, 0.8],
               ).createShader(rect);

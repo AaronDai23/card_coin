@@ -746,12 +746,19 @@ class _MyAppState extends State<MyApp> {
                     const TextStyle(color: Colors.white, fontSize: 20))),
         builder: EasyLoading.init(
             builder: (context, child) {
+              final routeName = ModalRoute.of(context)?.settings.name;
+              // Splash + ScanLogin logo covers are always white; keep the outer
+              // shell white on those routes so route handoff never flashes black.
+              final forceWhiteShell = routeName == null ||
+                  routeName == '/' ||
+                  routeName == 'splashPage' ||
+                  routeName == 'scanLoginPage';
               final isDark = MediaQuery.platformBrightnessOf(context) ==
                   Brightness.dark;
               return Scaffold(
-                  // Match splash / ScanLogin cover so route swaps don't flash
-                  // ThemeData(light) default scaffold color.
-                  backgroundColor: isDark ? Colors.black : Colors.white,
+                  backgroundColor: forceWhiteShell
+                      ? Colors.white
+                      : (isDark ? Colors.black : Colors.white),
                   appBar: showNetworkException
                       ? PreferredSize(
                           preferredSize: const Size(double.infinity, 40),
@@ -895,11 +902,16 @@ class _MyAppState extends State<MyApp> {
             return PageRouteBuilder<Object>(
               settings: settings,
               opaque: true,
+              barrierColor: Colors.white,
               transitionDuration: Duration.zero,
               reverseTransitionDuration: Duration.zero,
               pageBuilder: (context, animation, secondaryAnimation) {
-                return AppRoute.global
-                    .buildPage(settings.name!, settings.arguments);
+                // White shell from first paint — avoids blank/dark gap over splash.
+                return ColoredBox(
+                  color: Colors.white,
+                  child: AppRoute.global
+                      .buildPage(settings.name!, settings.arguments),
+                );
               },
             );
           }

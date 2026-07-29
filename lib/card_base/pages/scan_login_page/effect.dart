@@ -27,6 +27,16 @@ Effect<ScanLoginState>? buildEffect() {
 
 Future<void> _onInit(Action action, Context<ScanLoginState> ctx) async {
   StartupTime.printElapsed('scan_login_init');
+  // Keep splash logo briefly so route handoff stays seamless, then skeleton.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        try {
+          ctx.dispatch(ScanLoginActionCreator.onEndSplashLogoBridge());
+        } catch (_) {}
+      });
+    });
+  });
   // Splash may already have warmed memory/disk; sync UI from memory immediately.
   unawaited(_restoreScanLoginCache(ctx));
   ctx.dispatch(ScanLoginActionCreator.onLoadData());

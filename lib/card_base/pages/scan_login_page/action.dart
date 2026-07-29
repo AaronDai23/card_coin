@@ -16,7 +16,8 @@ enum ScanLoginAction {
   updateUserInfo,
   updateScanning,
   bannerItemClick,
-  faceLoginClick
+  faceLoginClick,
+  endSplashLogoBridge,
 }
 
 class ScanLoginActionCreator {
@@ -64,5 +65,9 @@ class ScanLoginActionCreator {
 
   static Action onBannerItemClick(BannerItem bannerItem) {
     return Action(ScanLoginAction.bannerItemClick, payload: bannerItem);
+  }
+
+  static Action onEndSplashLogoBridge() {
+    return const Action(ScanLoginAction.endSplashLogoBridge);
   }
 }

@@ -17,8 +17,10 @@ class ScanLoginState extends LoadPageState<ScanLoginState> {
   List<PageCategoryItem>? buttons;
   bool isScanning = false;
   bool showLoginButton = false;
-  /// False until first banner fetch/cache resolve — keep splash logo meanwhile.
+  /// False until first banner fetch/cache resolve — then skeleton/swiper.
   bool bannerFetchCompleted = false;
+  /// First frames after splash: keep logo cover before skeleton/banner.
+  bool splashLogoBridge = true;
   MethodChannel? channel;
   int counter = 0;
   @override
@@ -30,6 +32,7 @@ class ScanLoginState extends LoadPageState<ScanLoginState> {
       ..errorMsg = errorMsg
       ..showLoginButton = showLoginButton
       ..bannerFetchCompleted = bannerFetchCompleted
+      ..splashLogoBridge = splashLogoBridge
       ..loadStatus = loadStatus
       ..timer = timer
       ..counter = counter
@@ -83,6 +86,7 @@ ScanLoginState initState(Map<String, dynamic>? args) {
         ? List<PageCategoryItem>.from(cachedButtons)
         : buildFallbackButtons()
     ..bannerFetchCompleted = _hasHttpBanners(banners)
+    ..splashLogoBridge = true
     ..controller = PageController();
 }
 

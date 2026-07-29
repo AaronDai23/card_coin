@@ -24,164 +24,174 @@ Widget _bannerPlaceholder() {
 
 Widget buildView(
     ScanLoginState state, Dispatch dispatch, ViewService viewService) {
-  final isDark =
-      MediaQuery.platformBrightnessOf(viewService.context) == Brightness.dark;
   final showSwiper = _hasHttpBanners(state);
   final waitingForBanners =
       !_hasHttpBanners(state) && !state.bannerFetchCompleted;
-  final showChrome = !waitingForBanners;
+  final showChrome = !waitingForBanners && !state.splashLogoBridge;
+  final coverChromeColor = showSwiper ? Colors.white : Colors.black87;
 
-  // No Scaffold here — MaterialApp already wraps routes in one.
-  // Nested Scaffold was flashing theme bg and making the logo look smaller.
-  return BasePageLoadingView(
-    loadStatus: state.loadStatus,
-    errorMsg: state.errorMsg,
-    onReload: () {
-      dispatch(ScanLoginActionCreator.onLoadData());
-    },
-    buildBody: (bool isLoadSuccess) {
-      if (!isLoadSuccess || waitingForBanners) {
-        // Same tree as SplashPage — no Stack/chrome wrapping.
-        return const AppSplashLogo();
-      }
+  if (state.loadStatus == LoadType.loadFailure) {
+    return ColoredBox(
+      color: Colors.white,
+      child: BasePageLoadingView(
+        loadStatus: state.loadStatus,
+        errorMsg: state.errorMsg,
+        onReload: () {
+          dispatch(ScanLoginActionCreator.onLoadData());
+        },
+        buildBody: (_) => const AppSplashLogo(),
+      ),
+    );
+  }
 
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          // Cover while swiper mounts; same widget/size as SplashPage.
-          const AppSplashLogo(),
-          // When carousel URLs are ready, cover logo with placeholder then images.
-          if (showSwiper) ...[
-            _bannerPlaceholder(),
-            Swiper(
-              autoplay: true,
-              autoplayDelay: 5000,
-              itemCount: state.banners!.length,
-              itemWidth: MediaQuery.of(viewService.context).size.width,
-              itemHeight: MediaQuery.of(viewService.context).size.height,
-              curve: Curves.easeIn,
-              pagination: const SwiperPagination(
-                  margin: EdgeInsets.symmetric(vertical: 60, horizontal: 60),
-                  alignment: Alignment.topCenter,
-                  builder: SwiperPagination.dots),
-              itemBuilder: (BuildContext context, int index) {
-                var bannerItem = state.banners![index];
-                final dpr = MediaQuery.devicePixelRatioOf(context);
-                final cacheW =
-                    (MediaQuery.sizeOf(context).width * dpr).round();
-                return GestureDetector(
-                    onTap: () => dispatch(
-                        ScanLoginActionCreator.onBannerItemClick(bannerItem)),
-                    child: LoadImage(
-                      bannerItem.fileUrl!,
-                      fit: BoxFit.cover,
-                      holderImg: _bannerPlaceholder(),
-                      // Decode at screen width — much faster than full remote res.
-                      memCacheWidth: cacheW,
-                    ));
-              },
-            ),
-          ],
-          if (showChrome)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12.0, vertical: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(viewService.context)
-                              .pushNamed('multipleLoginPage');
-                        },
-                        child: Text(
-                          state.languageResource!.clickLogin,
-                          style: TextStyle(
-                              color: showSwiper
-                                  ? Colors.white
-                                  : (isDark ? Colors.white : Colors.black87),
-                              shadows: showSwiper
-                                  ? [
-                                      Shadow(
-                                          color: Colors.black.withOpacity(0.4),
-                                          offset: const Offset(1, 1))
-                                    ]
-                                  : null),
-                        ),
-                      ),
-                      IconButton(
-                          onPressed: () => Navigator.of(viewService.context)
-                              .pushNamed('appVersionPage'),
-                          icon: Icon(
-                            Icons.settings,
-                            color: showSwiper
-                                ? Colors.white
-                                : (isDark ? Colors.white : Colors.black87),
+  // 1) Splash → ScanLogin handoff: logo only (matches splash, no blank gap).
+  if (state.splashLogoBridge) {
+    return const ColoredBox(
+      color: Colors.white,
+      child: AppSplashLogo(),
+    );
+  }
+
+  // 2) Banner still loading: white skeleton.
+  if (waitingForBanners || state.loadStatus == LoadType.loading) {
+    return const ColoredBox(
+      color: Colors.white,
+      child: BannerSkeletonPlaceholder(),
+    );
+  }
+
+  // 3) Ready: logo under swiper (holder = skeleton) + chrome.
+  return ColoredBox(
+    color: Colors.white,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        const AppSplashLogo(),
+        if (showSwiper) ...[
+          _bannerPlaceholder(),
+          Swiper(
+            autoplay: true,
+            autoplayDelay: 5000,
+            itemCount: state.banners!.length,
+            itemWidth: MediaQuery.of(viewService.context).size.width,
+            itemHeight: MediaQuery.of(viewService.context).size.height,
+            curve: Curves.easeIn,
+            pagination: const SwiperPagination(
+                margin: EdgeInsets.symmetric(vertical: 60, horizontal: 60),
+                alignment: Alignment.topCenter,
+                builder: SwiperPagination.dots),
+            itemBuilder: (BuildContext context, int index) {
+              var bannerItem = state.banners![index];
+              final dpr = MediaQuery.devicePixelRatioOf(context);
+              final cacheW =
+                  (MediaQuery.sizeOf(context).width * dpr).round();
+              return GestureDetector(
+                  onTap: () => dispatch(
+                      ScanLoginActionCreator.onBannerItemClick(bannerItem)),
+                  child: LoadImage(
+                    bannerItem.fileUrl!,
+                    fit: BoxFit.cover,
+                    holderImg: _bannerPlaceholder(),
+                    memCacheWidth: cacheW,
+                  ));
+            },
+          ),
+        ],
+        if (showChrome)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(viewService.context)
+                            .pushNamed('multipleLoginPage');
+                      },
+                      child: Text(
+                        state.languageResource!.clickLogin,
+                        style: TextStyle(
+                            color: coverChromeColor,
                             shadows: showSwiper
                                 ? [
                                     Shadow(
                                         color: Colors.black.withOpacity(0.4),
                                         offset: const Offset(1, 1))
                                   ]
-                                : null,
-                          ))
-                    ],
-                  ),
+                                : null),
+                      ),
+                    ),
+                    IconButton(
+                        onPressed: () => Navigator.of(viewService.context)
+                            .pushNamed('appVersionPage'),
+                        icon: Icon(
+                          Icons.settings,
+                          color: coverChromeColor,
+                          shadows: showSwiper
+                              ? [
+                                  Shadow(
+                                      color: Colors.black.withOpacity(0.4),
+                                      offset: const Offset(1, 1))
+                                ]
+                              : null,
+                        ))
+                  ],
                 ),
               ),
             ),
-          if (showChrome && (state.buttons?.isNotEmpty ?? false))
-            SafeArea(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: SizedBox(
-                    height: 40.0,
-                    child: Row(
-                        children: state.buttons!.asMap().entries.map((e) {
-                      int index = e.key;
-                      PageCategoryItem buttonItem = e.value;
-                      bool isScanButton = buttonItem.target == 'scanCard';
-                      Widget buttonChild = Text(
-                        buttonItem.name ?? "",
-                        style: const TextStyle(color: Colors.black),
+          ),
+        if (showChrome && (state.buttons?.isNotEmpty ?? false))
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: SizedBox(
+                  height: 40.0,
+                  child: Row(
+                      children: state.buttons!.asMap().entries.map((e) {
+                    int index = e.key;
+                    PageCategoryItem buttonItem = e.value;
+                    bool isScanButton = buttonItem.target == 'scanCard';
+                    Widget buttonChild = Text(
+                      buttonItem.name ?? "",
+                      style: const TextStyle(color: Colors.black),
+                    );
+                    if (isScanButton && state.isScanning) {
+                      buttonChild = const SizedBox(
+                        width: 20.0,
+                        height: 20.0,
+                        child: CircularProgressIndicator(),
                       );
-                      if (isScanButton && state.isScanning) {
-                        buttonChild = const SizedBox(
-                          width: 20.0,
-                          height: 20.0,
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                              right: index == (state.buttons!.length - 1)
-                                  ? 0.0
-                                  : 8.0),
-                          child: ElevatedButton(
-                              onPressed: () => dispatch(
-                                  ScanLoginActionCreator.onButtonItemClick(
-                                      buttonItem)),
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6.0))),
-                              child: Center(child: buttonChild)),
-                        ),
-                      );
-                    }).toList()),
-                  ),
+                    }
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                            right: index == (state.buttons!.length - 1)
+                                ? 0.0
+                                : 8.0),
+                        child: ElevatedButton(
+                            onPressed: () => dispatch(
+                                ScanLoginActionCreator.onButtonItemClick(
+                                    buttonItem)),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6.0))),
+                            child: Center(child: buttonChild)),
+                      ),
+                    );
+                  }).toList()),
                 ),
               ),
             ),
-        ],
-      );
-    },
+          ),
+      ],
+    ),
   );
 }
 

@@ -114,7 +114,7 @@ List<HealthCheckInfo> _cpuCheckList(AppLanguageResource languageResource) {
   ];
 }
 
-/// NTAG / Classic health check: UID + serial number + NDEF URL + write lock.
+/// NTAG / Classic health check: UID + serial + NDEF URL + vendor + write lock.
 List<HealthCheckInfo> _ntagCheckList(AppLanguageResource languageResource) {
   return [
     HealthCheckInfo(name: 'UID', type: HealthCheckType.uid),
@@ -122,6 +122,9 @@ List<HealthCheckInfo> _ntagCheckList(AppLanguageResource languageResource) {
         name: languageResource.cardNumber, type: HealthCheckType.cardNumber),
     HealthCheckInfo(
         name: languageResource.ndefPrefixSet, type: HealthCheckType.ndefPrefix),
+    HealthCheckInfo(
+        name: languageResource.cardVendorCheck,
+        type: HealthCheckType.cardVendorCheck),
     HealthCheckInfo(
         name: languageResource.cardLock, type: HealthCheckType.cardLock),
   ];
@@ -731,7 +734,26 @@ Future<void> _fillMemoryCardHealthResults(
   final cardId = uidHex.replaceAll(' ', '').toUpperCase();
   HealthStatus cardNumberStatus = HealthStatus.failed;
   String cardNumberResult = 'No';
+  HealthStatus vendorStatus = HealthStatus.failed;
+  String vendorResult = 'No';
   if (cardId.isNotEmpty) {
+    try {
+      final vendorResultResp = await HttpManager.getInstance().post(
+        NetworkAddress.checkUid,
+        null,
+        data: {'uid': cardId},
+        cancelToken: ctx.state.canceler.newToken(),
+      );
+      if (vendorResultResp.isSuccess) {
+        vendorStatus = HealthStatus.health;
+        vendorResult = 'Yes';
+      } else {
+        vendorStatus = HealthStatus.failed;
+        vendorResult = 'No';
+      }
+    } catch (e) {
+      print('memory-card checkUid error: $e');
+    }
     try {
       final result = await HttpManager.getInstance().post(
         NetworkAddress.getCardNumber,
@@ -761,6 +783,11 @@ Future<void> _fillMemoryCardHealthResults(
       list[i] = item.copyWith(
         status: uidHex.isEmpty ? HealthStatus.failed : HealthStatus.health,
         result: uidHex.isEmpty ? 'Empty' : uidHex.toUpperCase(),
+      );
+    } else if (item.type == HealthCheckType.cardVendorCheck) {
+      list[i] = item.copyWith(
+        status: cardId.isEmpty ? HealthStatus.failed : vendorStatus,
+        result: cardId.isEmpty ? 'No' : vendorResult,
       );
     } else if (item.type == HealthCheckType.cardNumber) {
       list[i] = item.copyWith(

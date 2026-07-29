@@ -90,7 +90,7 @@ android {
 
         card_coin_pro {
             dimension "app"
-            versionCode 310
+            versionCode 312
             applicationId "com.cardcoin.bestwish"
 
         }
@@ -137,6 +137,16 @@ android {
     }
     lint {
         disable 'InvalidPackage'
+    }
+}
+
+// APK 文件名：{flavor}_{yyyyMMdd_HHmmss}.apk，例如 card_coin_pro_20260729_234712.apk
+android.applicationVariants.configureEach { variant ->
+    variant.outputs.configureEach { output ->
+        def stamp = new Date().format('yyyyMMdd_HHmmss')
+        def flavor = variant.flavorName ?: 'app'
+        def buildType = variant.buildType.name
+        output.outputFileName = "${flavor}_${buildType}_${stamp}.apk"
     }
 }
 
