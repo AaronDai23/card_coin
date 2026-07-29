@@ -90,7 +90,7 @@ android {
 
         card_coin_pro {
             dimension "app"
-            versionCode 308
+            versionCode 310
             applicationId "com.cardcoin.bestwish"
 
         }

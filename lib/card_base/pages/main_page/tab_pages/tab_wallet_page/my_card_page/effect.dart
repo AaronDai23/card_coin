@@ -656,6 +656,19 @@ Future<void> _onRemovedClick(Action action, Context<MyCardState> ctx) async {
   }
 }
 
+/// 扫卡中断/失败时恢复 pageConfig，避免扫卡前清空后页面空白。
+void _restoreMyCardPageAfterScanAbort(
+  Action action,
+  Context<MyCardState> ctx,
+) {
+  if (ctx.state.cardDetail != null) {
+    ctx.state.pageConfig = PageFieldConfigInfo();
+    _onCheckPageConfig(action, ctx, ctx.state.cardDetail!);
+  }
+  ctx.dispatch(
+      MyCardActionCreator.onLoadSuccess(cardDetail: ctx.state.cardDetail));
+}
+
 Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   // Flow (NTAG + CPU, one NFC dialog):
   // 1) native reads real tag uid
@@ -663,12 +676,6 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   // 3) build URL from that domain + Base64(tag uid)
   // 4) native writes NDEF on the same connection
   // Each card may have a different bound domain — never reuse another card's.
-
-  ///弹出窗口前要把之前的卡信息内容移除
-  if (ctx.state.cardDetail != null) {
-    ctx.broadcast(MyCardActionCreator.onChangeBgcolorInReTap(true));
-    ctx.state.pageConfig = PageFieldConfigInfo();
-  }
 
   int now = DateTime.now().millisecondsSinceEpoch;
   // 如果距离上次点击的时间小于 2 秒，则不触发
@@ -678,195 +685,217 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   }
   ctx.state.lastClickedTime = now;
 
-  final chipResp = await chip_scan.ScanUtil.scanWithLiveSmartCardConfig(
-    checkLock: true,
-    needSyncUid: true,
-    fetchConfig: (tagUid) async {
-      // Always request config for the tag on the reader (per-card domain).
-      // Backend stores uid uppercase — match that for lookup.
-      final requestUid = tagUid.trim().toUpperCase();
-      print('[NDEF][CONFIG] ========== smartCard/config begin ==========');
-      print('[NDEF][CONFIG] tagUid(raw)=$tagUid');
-      print('[NDEF][CONFIG] requestUid=$requestUid');
-      final result = await HttpManager.getInstance().post(
-        NetworkAddress.smartCardConfig,
-        null,
-        data: {'uid': requestUid},
-      );
-      if (!result.isSuccess) {
-        print('[NDEF][CONFIG] FAIL message=${result.message}');
-        throw Exception(
-          result.message.isNotEmpty
-              ? result.message
-              : 'smartCard/config failed',
-        );
-      }
-      final data = result.data;
-      print('[NDEF][CONFIG] raw data=$data');
-      final domain = (data is Map
-              ? (data['ndefDomain'] ?? data['ndef_domain'])
-              : null)
-          ?.toString() ??
-          '';
-      final ndefHost =
-          (data is Map ? (data['ndefHost'] ?? data['ndef_host']) : null)
-              ?.toString() ??
-          '';
-      final ndefParameter = (data is Map
-              ? (data['ndefParameter'] ?? data['ndef_parameter'])
-              : null)
-          ?.toString() ??
-          '';
-      final aar = (data is Map
-              ? (data['ndefAAR'] ?? data['ndefAar'] ?? data['ndef_aar'])
-              : null)
-          ?.toString() ??
-          '';
-      final sync = data is Map
-          ? (data['isNeedSyncUid'] ??
-              data['isNeedSyncUID'] ??
-              data['syncUid']) as bool?
-          : null;
-      final cardTech = (data is Map
-              ? (data['cardTech'] ?? data['card_tech'])
-              : null)
-          ?.toString() ??
-          '';
-      print('[NDEF][CONFIG] cardTech=$cardTech');
-      print('[NDEF][CONFIG] ndefDomain=$domain');
-      print('[NDEF][CONFIG] ndefHost=$ndefHost');
-      print('[NDEF][CONFIG] ndefParameter=$ndefParameter');
-      print('[NDEF][CONFIG] ndefAAR=$aar');
-      print('[NDEF][CONFIG] syncUid=$sync');
-      if (domain.trim().isEmpty) {
-        print('[NDEF][CONFIG] FAIL ndefDomain empty');
-        throw Exception('ndefDomain is empty');
-      }
-
-      final isCpu = cardTech.toUpperCase() == 'CPU';
-      // CPU Type-4: empty uid= (applet appends /BASE64).
-      // NTAG: this card's domain + Base64(this tag uid).
-      final fullUrl = isCpu
-          ? NtagNdefWriter.buildCpuType4NdefUrl(
-              domainUrl: domain,
-              uidHex: requestUid,
-            )
-          : NtagNdefWriter.buildFullNdefUrl(
-              domainUrl: domain,
-              uidHex: requestUid,
-              ensureScheme: false,
-            );
-      print('[NDEF][CONFIG] isCpu=$isCpu');
-      print('[NDEF][CONFIG] fullUrl(to write)=$fullUrl');
-      print('[NDEF][CONFIG] ========== smartCard/config end ==========');
-      ctx.state.domainUrl = domain;
-      ctx.state.ndefAAR = aar;
-      if (sync != null) ctx.state.isNeedSyncUid = sync;
-      return chip_scan.SmartCardNdefConfig(
-        ndefDomain: fullUrl,
-        ndefAar: aar,
-        isNeedSyncUid: sync,
-      );
-    },
-  );
-  print(
-    '[NDEF] step5 scan done success=${chipResp.isSuccess} '
-    'cardId=${chipResp.data?.cardId} msg=${chipResp.message} '
-    'code=${chipResp.errorCode}',
-  );
-  if (chipResp.data?.data != null && chipResp.data!.data!.isNotEmpty) {
-    try {
-      final written = String.fromCharCodes(chipResp.data!.data!);
-      print('[NDEF] step5 native returned data(as utf8)=$written');
-    } catch (_) {
-      print('[NDEF] step5 native returned data bytes=${chipResp.data!.data}');
-    }
+  ///弹出窗口前要把之前的卡信息内容移除（必须在防抖通过后执行）
+  if (ctx.state.cardDetail != null) {
+    ctx.broadcast(MyCardActionCreator.onChangeBgcolorInReTap(true));
+    ctx.state.pageConfig = PageFieldConfigInfo();
   }
-  final scanResponse = ScanResponse(
-    chipResp.isSuccess,
-    isActivated: chipResp.data?.isActivated,
-    resetCount: chipResp.data?.resetCount,
-    data: chipResp.data?.cardId,
-    message: chipResp.message,
-    sw1: chipResp.sw1,
-    sw2: chipResp.sw2,
-  );
-  // final scanResponse = await ScanUtil.scanCard(ctx.context, runnable: GetPrivateKeyRunnable());
-  // final scanResponse = await ScanUtil.scanCard(ctx.context, runnable: GetDerivePrivateKeyRunnable('8000002C8000003C800000000000000000000000'));
-  if (scanResponse.isSuccess) {
-    print("_onScanCardClick-scanResponse.data:${scanResponse.data}");
-    String? cardUuid = scanResponse.data;
-    if (cardUuid != null && cardUuid == ctx.state.cardDetail?.uid) {
-      return;
-    }
-    //cardUuid = "04594cfafe1f90";
-    LogUtils.uid = cardUuid!;
-    String? cardActivated =
-        await LocalStorage.getString(LocalStorage.cardActivited + cardUuid);
-    String? cardResetcount =
-        await LocalStorage.getString(LocalStorage.cardResetCount + cardUuid);
+
+  try {
+    final chipResp = await chip_scan.ScanUtil.scanWithLiveSmartCardConfig(
+      checkLock: true,
+      needSyncUid: true,
+      fetchConfig: (tagUid) async {
+        // Always request config for the tag on the reader (per-card domain).
+        // Backend stores uid uppercase — match that for lookup.
+        final requestUid = tagUid.trim().toUpperCase();
+        print('[NDEF][CONFIG] ========== smartCard/config begin ==========');
+        print('[NDEF][CONFIG] tagUid(raw)=$tagUid');
+        print('[NDEF][CONFIG] requestUid=$requestUid');
+        final result = await HttpManager.getInstance().post(
+          NetworkAddress.smartCardConfig,
+          null,
+          data: {'uid': requestUid},
+        );
+        if (!result.isSuccess) {
+          print('[NDEF][CONFIG] FAIL message=${result.message}');
+          throw Exception(
+            result.message.isNotEmpty
+                ? result.message
+                : 'smartCard/config failed',
+          );
+        }
+        final data = result.data;
+        print('[NDEF][CONFIG] raw data=$data');
+        final domain = (data is Map
+                ? (data['ndefDomain'] ?? data['ndef_domain'])
+                : null)
+            ?.toString() ??
+            '';
+        final ndefHost =
+            (data is Map ? (data['ndefHost'] ?? data['ndef_host']) : null)
+                ?.toString() ??
+            '';
+        final ndefParameter = (data is Map
+                ? (data['ndefParameter'] ?? data['ndef_parameter'])
+                : null)
+            ?.toString() ??
+            '';
+        final aar = (data is Map
+                ? (data['ndefAAR'] ?? data['ndefAar'] ?? data['ndef_aar'])
+                : null)
+            ?.toString() ??
+            '';
+        final sync = data is Map
+            ? (data['isNeedSyncUid'] ??
+                data['isNeedSyncUID'] ??
+                data['syncUid']) as bool?
+            : null;
+        final cardTech = (data is Map
+                ? (data['cardTech'] ?? data['card_tech'])
+                : null)
+            ?.toString() ??
+            '';
+        print('[NDEF][CONFIG] cardTech=$cardTech');
+        print('[NDEF][CONFIG] ndefDomain=$domain');
+        print('[NDEF][CONFIG] ndefHost=$ndefHost');
+        print('[NDEF][CONFIG] ndefParameter=$ndefParameter');
+        print('[NDEF][CONFIG] ndefAAR=$aar');
+        print('[NDEF][CONFIG] syncUid=$sync');
+        if (domain.trim().isEmpty) {
+          print('[NDEF][CONFIG] FAIL ndefDomain empty');
+          throw Exception('ndefDomain is empty');
+        }
+
+        final isCpu = cardTech.toUpperCase() == 'CPU';
+        // CPU Type-4: empty uid= (applet appends /BASE64).
+        // NTAG: this card's domain + Base64(this tag uid).
+        final fullUrl = isCpu
+            ? NtagNdefWriter.buildCpuType4NdefUrl(
+                domainUrl: domain,
+                uidHex: requestUid,
+              )
+            : NtagNdefWriter.buildFullNdefUrl(
+                domainUrl: domain,
+                uidHex: requestUid,
+                ensureScheme: false,
+              );
+        print('[NDEF][CONFIG] isCpu=$isCpu');
+        print('[NDEF][CONFIG] fullUrl(to write)=$fullUrl');
+        print('[NDEF][CONFIG] ========== smartCard/config end ==========');
+        ctx.state.domainUrl = domain;
+        ctx.state.ndefAAR = aar;
+        if (sync != null) ctx.state.isNeedSyncUid = sync;
+        return chip_scan.SmartCardNdefConfig(
+          ndefDomain: fullUrl,
+          ndefAar: aar,
+          isNeedSyncUid: sync,
+        );
+      },
+    );
     print(
-        'save card_activated:$cardActivated,card_ResetCount:$cardResetcount,scanResponse.resetCount:${scanResponse.resetCount},scanResponse.isActivated:${scanResponse.isActivated}');
-    if (!(scanResponse.isActivated ?? false)) {
-      LocalStorage.remove(LocalStorage.cardInfo + cardUuid);
-      if (cardActivated != null && cardActivated == "1") {
-        LocalStorage.remove(LocalStorage.cardActivited + cardUuid);
-        LocalStorage.remove(LocalStorage.cardResetCount + cardUuid);
-        _resetDataWithCardId(action, ctx, cardUuid);
-      }
-      LocalStorage.save(LocalStorage.cardActivited + cardUuid, '0');
-      LocalStorage.save(
-          LocalStorage.cardResetCount + cardUuid, "${scanResponse.resetCount}");
-      print('save_card_activated:0');
-    } else if (scanResponse.isActivated == true &&
-        cardResetcount != null &&
-        scanResponse.resetCount != null &&
-        cardResetcount != scanResponse.resetCount.toString()) {
-      LocalStorage.remove(LocalStorage.cardInfo + cardUuid);
-      LocalStorage.remove(LocalStorage.cardActivited + cardUuid);
-      LocalStorage.remove(LocalStorage.cardResetCount + cardUuid);
-      _resetDataWithCardId(action, ctx, cardUuid);
-      LocalStorage.save(LocalStorage.cardActivited + cardUuid, '1');
-      LocalStorage.save(
-          LocalStorage.cardResetCount + cardUuid, "${scanResponse.resetCount}");
-      print('save_card_activated:1');
-    } else if (scanResponse.isActivated == true) {
-      LocalStorage.save(LocalStorage.cardActivited + cardUuid, '1');
-      LocalStorage.save(
-          LocalStorage.cardResetCount + cardUuid, "${scanResponse.resetCount}");
-      print('save_card_activated:2');
-    }
-    print("write ndef success:$cardUuid");
-
-    StartupTime.mark('mycard_scan_success');
-    // 每次扫卡都先清空旧卡片内容，确保加载态走骨屏而不是遮罩 loading。
-    ctx.state.cardDetailBeforeScan = ctx.state.cardDetail;
-    ctx.dispatch(MyCardActionCreator.onClearCardDetail());
-    ctx.dispatch(MyCardActionCreator.onShowLoading());
-
-    ctx.dispatch(MyCardActionCreator.onLoadCardInfo(cardUuid));
-  } else {
-    print("write ndef fail");
-    if (scanResponse.message != "Session invalidated by user" &&
-        scanResponse.message != "System resource unavailable" &&
-        scanResponse.message != "用户已取消") {
-      if (scanResponse.message != null && scanResponse.message!.length <= 50) {
-        await ScanUtil.unlockTip(
-            scanResponse,
-            ctx.context,
-            scanResponse.data == null
-                ? ctx.state.cardDetail?.uid
-                : scanResponse.data!);
+      '[NDEF] step5 scan done success=${chipResp.isSuccess} '
+      'cardId=${chipResp.data?.cardId} msg=${chipResp.message} '
+      'code=${chipResp.errorCode}',
+    );
+    if (chipResp.data?.data != null && chipResp.data!.data!.isNotEmpty) {
+      try {
+        final written = String.fromCharCodes(chipResp.data!.data!);
+        print('[NDEF] step5 native returned data(as utf8)=$written');
+      } catch (_) {
+        print('[NDEF] step5 native returned data bytes=${chipResp.data!.data}');
       }
     }
-    // 无论取消还是错误，都需要从现有 cardDetail 恢复 pageConfig，
-    // 因为扫卡前已将 pageConfig 置空，若不还原则页面空白。
-    if (ctx.state.cardDetail != null) {
-      ctx.state.pageConfig = PageFieldConfigInfo();
-      _onCheckPageConfig(action, ctx, ctx.state.cardDetail!);
+    final scanResponse = ScanResponse(
+      chipResp.isSuccess,
+      isActivated: chipResp.data?.isActivated,
+      resetCount: chipResp.data?.resetCount,
+      data: chipResp.data?.cardId,
+      message: chipResp.message,
+      sw1: chipResp.sw1,
+      sw2: chipResp.sw2,
+    );
+    // final scanResponse = await ScanUtil.scanCard(ctx.context, runnable: GetPrivateKeyRunnable());
+    // final scanResponse = await ScanUtil.scanCard(ctx.context, runnable: GetDerivePrivateKeyRunnable('8000002C8000003C800000000000000000000000'));
+    if (scanResponse.isSuccess) {
+      print("_onScanCardClick-scanResponse.data:${scanResponse.data}");
+      final cardUuid = scanResponse.data?.trim();
+      if (cardUuid == null || cardUuid.isEmpty) {
+        print("_onScanCardClick success but cardId empty, skip detail request");
+        showToast('扫卡成功但未获取到卡片ID，请重试');
+        _restoreMyCardPageAfterScanAbort(action, ctx);
+        return;
+      }
+      //cardUuid = "04594cfafe1f90";
+      try {
+        LogUtils.uid = cardUuid;
+        String? cardActivated =
+            await LocalStorage.getString(LocalStorage.cardActivited + cardUuid);
+        String? cardResetcount =
+            await LocalStorage.getString(LocalStorage.cardResetCount + cardUuid);
+        print(
+            'save card_activated:$cardActivated,card_ResetCount:$cardResetcount,scanResponse.resetCount:${scanResponse.resetCount},scanResponse.isActivated:${scanResponse.isActivated}');
+        if (!(scanResponse.isActivated ?? false)) {
+          LocalStorage.remove(LocalStorage.cardInfo + cardUuid);
+          if (cardActivated != null && cardActivated == "1") {
+            LocalStorage.remove(LocalStorage.cardActivited + cardUuid);
+            LocalStorage.remove(LocalStorage.cardResetCount + cardUuid);
+            _resetDataWithCardId(action, ctx, cardUuid);
+          }
+          LocalStorage.save(LocalStorage.cardActivited + cardUuid, '0');
+          LocalStorage.save(LocalStorage.cardResetCount + cardUuid,
+              "${scanResponse.resetCount}");
+          print('save_card_activated:0');
+        } else if (scanResponse.isActivated == true &&
+            cardResetcount != null &&
+            scanResponse.resetCount != null &&
+            cardResetcount != scanResponse.resetCount.toString()) {
+          LocalStorage.remove(LocalStorage.cardInfo + cardUuid);
+          LocalStorage.remove(LocalStorage.cardActivited + cardUuid);
+          LocalStorage.remove(LocalStorage.cardResetCount + cardUuid);
+          _resetDataWithCardId(action, ctx, cardUuid);
+          LocalStorage.save(LocalStorage.cardActivited + cardUuid, '1');
+          LocalStorage.save(LocalStorage.cardResetCount + cardUuid,
+              "${scanResponse.resetCount}");
+          print('save_card_activated:1');
+        } else if (scanResponse.isActivated == true) {
+          LocalStorage.save(LocalStorage.cardActivited + cardUuid, '1');
+          LocalStorage.save(LocalStorage.cardResetCount + cardUuid,
+              "${scanResponse.resetCount}");
+          print('save_card_activated:2');
+        }
+        print("write ndef success:$cardUuid");
+
+        StartupTime.mark('mycard_scan_success');
+        // 每次扫卡都先清空旧卡片内容，确保加载态走骨屏而不是遮罩 loading。
+        ctx.state.cardDetailBeforeScan = ctx.state.cardDetail;
+        ctx.dispatch(MyCardActionCreator.onClearCardDetail());
+        ctx.dispatch(MyCardActionCreator.onShowLoading());
+
+        ctx.dispatch(MyCardActionCreator.onLoadCardInfo(cardUuid));
+      } catch (e, st) {
+        print("_onScanCardClick post-success handling failed: $e\n$st");
+        showToast('扫卡处理失败，请重试');
+        _restoreMyCardPageAfterScanAbort(action, ctx);
+      }
+    } else {
+      print("write ndef fail");
+      final isCancelled = scanResponse.message == "Session invalidated by user" ||
+          scanResponse.message == "System resource unavailable" ||
+          scanResponse.message == "用户已取消";
+      if (!isCancelled) {
+        if (scanResponse.message != null && scanResponse.message!.length <= 50) {
+          await ScanUtil.unlockTip(
+              scanResponse,
+              ctx.context,
+              scanResponse.data == null
+                  ? ctx.state.cardDetail?.uid
+                  : scanResponse.data!);
+        } else {
+          showToast(scanResponse.message?.isNotEmpty == true
+              ? scanResponse.message!
+              : '扫卡失败，请重试');
+        }
+      }
+      // 无论取消还是错误，都需要从现有 cardDetail 恢复 pageConfig，
+      // 因为扫卡前已将 pageConfig 置空，若不还原则页面空白。
+      _restoreMyCardPageAfterScanAbort(action, ctx);
     }
-    ctx.dispatch(
-        MyCardActionCreator.onLoadSuccess(cardDetail: ctx.state.cardDetail));
+  } catch (e, st) {
+    print("_onScanCardClick scan failed: $e\n$st");
+    final msg = e.toString().replaceFirst('Exception: ', '').trim();
+    showToast(msg.isNotEmpty && msg.length <= 50 ? msg : '扫卡失败，请重试');
+    _restoreMyCardPageAfterScanAbort(action, ctx);
   }
 }
 
