@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Pre-Android 12 windowBackground splash.
-  Always white — Xiaomi dark mode must not paint black behind the logo.
+  Match Flutter AppSplashLogo (200dp). Slightly under the Android 12 system
+  splash icon frame (~240dp) so cold-start does not jump large → small.
 -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:opacity="opaque">
+    <item android:drawable="@drawable/splash_fill_white" />
     <item
-        android:width="240dp"
-        android:height="240dp"
-        android:gravity="center"
-        android:drawable="@drawable/splash_logo_fg" />
+        android:width="200dp"
+        android:height="200dp"
+        android:gravity="center">
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/splash_logo" />
+    </item>
 </layer-list>

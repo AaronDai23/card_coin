@@ -2,4 +2,6 @@
 <resources>
     <!-- Light mode splash (follows system; Xiaomi/Huawei read this from values/). -->
     <color name="splash_background">#FFFFFFFF</color>
+    <!-- Adaptive icon plate — system splash falls back to this on MIUI. -->
+    <color name="ic_launcher_background">#FFFFFFFF</color>
 </resources>

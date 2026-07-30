@@ -6,11 +6,10 @@ import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.os.PersistableBundle
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.appcompat.app.AppCompatDelegate
 import com.chipcore.sdk.flutter.ChipCoreBlockchainApi
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.renderer.FlutterUiDisplayListener
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
@@ -30,9 +29,6 @@ class MainActivity: FlutterFragmentActivity() {
      * Dart 侧在 startSession 前置 true，会话结束后置 false。
      */
     private var suppressForegroundDispatch = false
-
-    /** Keep AndroidX splash until first Flutter frame (Xiaomi black-gap fix). */
-    private var keepNativeSplash = true
 
     /** NFC action 集合，这类 intent 不应被当成 deeplink 处理 */
     private fun isNfcIntent(i: Intent?) =
@@ -57,9 +53,11 @@ class MainActivity: FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Must run before super.onCreate — otherwise MIUI/Harmony often show a blank splash.
-        val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { keepNativeSplash }
+        // loan-app-native style: Light theme + windowBackground only (no SplashScreen API).
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        window.setBackgroundDrawableResource(R.drawable.launch_background)
+        window.statusBarColor = android.graphics.Color.WHITE
+        window.navigationBarColor = android.graphics.Color.WHITE
 
         val i = intent
         android.util.Log.d("NFC_DEBUG",
@@ -73,22 +71,13 @@ class MainActivity: FlutterFragmentActivity() {
             setIntent(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
         }
         super.onCreate(savedInstanceState)
+        window.setBackgroundDrawableResource(R.drawable.launch_background)
         android.util.Log.d("NFC_DEBUG",
             "onCreate action33333=${i?.action} data=${i?.data} extras=${i?.extras?.keySet()}")
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         ChipCoreBlockchainApi.register(flutterEngine.dartExecutor.binaryMessenger, this)
-        flutterEngine.renderer.addIsDisplayingFlutterUiListener(
-            object : FlutterUiDisplayListener {
-                override fun onFlutterUiDisplayed() {
-                    keepNativeSplash = false
-                    flutterEngine.renderer.removeIsDisplayingFlutterUiListener(this)
-                }
-
-                override fun onFlutterUiNoLongerDisplayed() {}
-            },
-        )
         // 经过 onCreate 的 setIntent 过滤，此时 intent 一定不是 NFC intent
         val t0 = System.currentTimeMillis()
         android.util.Log.d("TIMING", "[configureFlutterEngine] start, t=${t0}")

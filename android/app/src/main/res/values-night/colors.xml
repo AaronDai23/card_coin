@@ -2,4 +2,5 @@
 <resources>
     <!-- Force white splash even in system dark mode (match Flutter AppSplashLogo). -->
     <color name="splash_background">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#FFFFFFFF</color>
 </resources>

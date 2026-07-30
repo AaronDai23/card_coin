@@ -19,8 +19,8 @@ import 'package:card_coin/utils/date_util.dart';
 import 'package:card_coin/utils/number_util.dart';
 import 'package:card_coin/utils/ntag_ndef_writer.dart';
 import 'package:card_coin/utils/scan_util.dart';
+import 'package:card_coin/utils/smart_card_live_config_scan.dart';
 import 'package:card_coin/utils/startup_time.dart';
-import 'package:chipcore_sdk/src/demo/utils/scan_util.dart' as chip_scan;
 import 'package:card_coin/widget/custom_alert_dialog.dart';
 import 'package:fish_redux/fish_redux.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -669,6 +669,18 @@ void _restoreMyCardPageAfterScanAbort(
       MyCardActionCreator.onLoadSuccess(cardDetail: ctx.state.cardDetail));
 }
 
+/// Parse smartCard/config `activated` / `isActivated`. Null if field absent.
+bool? _parseConfigActivated(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is bool) return raw;
+  if (raw is num) return raw != 0;
+  final s = raw.toString().trim().toLowerCase();
+  if (s.isEmpty) return null;
+  if (s == 'true' || s == '1' || s == 'yes') return true;
+  if (s == 'false' || s == '0' || s == 'no') return false;
+  return null;
+}
+
 Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   // Flow (NTAG + CPU, one NFC dialog):
   // 1) native reads real tag uid
@@ -692,10 +704,10 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   }
 
   try {
-    final chipResp = await chip_scan.ScanUtil.scanWithLiveSmartCardConfig(
+    final chipResp = await SmartCardLiveConfigScan.run(
       checkLock: true,
       needSyncUid: true,
-      fetchConfig: (tagUid) async {
+      fetchConfigMap: (tagUid) async {
         // Always request config for the tag on the reader (per-card domain).
         // Backend stores uid uppercase — match that for lookup.
         final requestUid = tagUid.trim().toUpperCase();
@@ -717,36 +729,38 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
         }
         final data = result.data;
         print('[NDEF][CONFIG] raw data=$data');
-        final domain = (data is Map
-                ? (data['ndefDomain'] ?? data['ndef_domain'])
-                : null)
-            ?.toString() ??
-            '';
+        final domain =
+            (data is Map ? (data['ndefDomain'] ?? data['ndef_domain']) : null)
+                    ?.toString() ??
+                '';
         final ndefHost =
             (data is Map ? (data['ndefHost'] ?? data['ndef_host']) : null)
+                    ?.toString() ??
+                '';
+        final ndefParameter = (data is Map
+                    ? (data['ndefParameter'] ?? data['ndef_parameter'])
+                    : null)
                 ?.toString() ??
             '';
-        final ndefParameter = (data is Map
-                ? (data['ndefParameter'] ?? data['ndef_parameter'])
-                : null)
-            ?.toString() ??
-            '';
         final aar = (data is Map
-                ? (data['ndefAAR'] ?? data['ndefAar'] ?? data['ndef_aar'])
-                : null)
-            ?.toString() ??
+                    ? (data['ndefAAR'] ?? data['ndefAar'] ?? data['ndef_aar'])
+                    : null)
+                ?.toString() ??
             '';
         final sync = data is Map
             ? (data['isNeedSyncUid'] ??
                 data['isNeedSyncUID'] ??
                 data['syncUid']) as bool?
             : null;
-        final cardTech = (data is Map
-                ? (data['cardTech'] ?? data['card_tech'])
-                : null)
-            ?.toString() ??
-            '';
+        final cardTech =
+            (data is Map ? (data['cardTech'] ?? data['card_tech']) : null)
+                    ?.toString() ??
+                '';
+        final activatedRaw =
+            data is Map ? (data['activated'] ?? data['isActivated']) : null;
+        final activated = _parseConfigActivated(activatedRaw);
         print('[NDEF][CONFIG] cardTech=$cardTech');
+        print('[NDEF][CONFIG] activated=$activated (raw=$activatedRaw)');
         print('[NDEF][CONFIG] ndefDomain=$domain');
         print('[NDEF][CONFIG] ndefHost=$ndefHost');
         print('[NDEF][CONFIG] ndefParameter=$ndefParameter');
@@ -770,17 +784,23 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
                 uidHex: requestUid,
                 ensureScheme: false,
               );
+        // NTAG / Classic inactive → native AlertDialog above NFC sheet.
+        final needsWriteConfirm = !isCpu && activated == false;
         print('[NDEF][CONFIG] isCpu=$isCpu');
         print('[NDEF][CONFIG] fullUrl(to write)=$fullUrl');
+        print('[NDEF][CONFIG] needsWriteConfirm=$needsWriteConfirm');
         print('[NDEF][CONFIG] ========== smartCard/config end ==========');
         ctx.state.domainUrl = domain;
         ctx.state.ndefAAR = aar;
         if (sync != null) ctx.state.isNeedSyncUid = sync;
-        return chip_scan.SmartCardNdefConfig(
-          ndefDomain: fullUrl,
-          ndefAar: aar,
-          isNeedSyncUid: sync,
-        );
+        return <String, dynamic>{
+          'ndefDomain': fullUrl,
+          'ndefAar': aar,
+          'ndefAAR': aar,
+          'isNeedSyncUid': sync,
+          'writeNdef': true,
+          'needsWriteConfirm': needsWriteConfirm,
+        };
       },
     );
     print(
@@ -820,8 +840,8 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
         LogUtils.uid = cardUuid;
         String? cardActivated =
             await LocalStorage.getString(LocalStorage.cardActivited + cardUuid);
-        String? cardResetcount =
-            await LocalStorage.getString(LocalStorage.cardResetCount + cardUuid);
+        String? cardResetcount = await LocalStorage.getString(
+            LocalStorage.cardResetCount + cardUuid);
         print(
             'save card_activated:$cardActivated,card_ResetCount:$cardResetcount,scanResponse.resetCount:${scanResponse.resetCount},scanResponse.isActivated:${scanResponse.isActivated}');
         if (!(scanResponse.isActivated ?? false)) {
@@ -871,7 +891,8 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
       if (scanResponse.message != "Session invalidated by user" &&
           scanResponse.message != "System resource unavailable" &&
           scanResponse.message != "用户已取消") {
-        if (scanResponse.message != null && scanResponse.message!.length <= 50) {
+        if (scanResponse.message != null &&
+            scanResponse.message!.length <= 50) {
           await ScanUtil.unlockTip(
               scanResponse,
               ctx.context,

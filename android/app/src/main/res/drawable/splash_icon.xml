@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Transparent FG logo for Android 12+ circular splash icon (Xiaomi/Huawei). -->
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/splash_logo_fg"
-    android:inset="10%" />
+<!--
+  Android 12+ always shows a system splash; we cannot disable it.
+  Use a solid white icon so the mandatory splash is blank white — logo comes
+  from Flutter SplashPage only.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/splash_fill_white" />
+</layer-list>
