@@ -6,6 +6,7 @@ import 'package:card_coin/utils/startup_time.dart';
 import 'package:common_utils/common_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 //全局异常的捕捉
 
@@ -13,7 +14,16 @@ class AppCatchError {
   run(Widget app) {
     // Flutter 框架异常
     FlutterError.onError = (FlutterErrorDetails details) async {
-      // 线上环境
+      // WalletConnect channel 在 iOS 注册竞态时会出现 MissingPluginException，
+      // 不应当成致命异常打到 ChipCore（日志里的 33333message）。
+      final isWcMissingPlugin = details.exception is MissingPluginException &&
+          details.exceptionAsString().contains('walletconnect.flutterwallet');
+      if (isWcMissingPlugin) {
+        if (!kReleaseMode) {
+          FlutterError.dumpErrorToConsole(details);
+        }
+        return;
+      }
 
       // MethodManager.invokeCatchedException(map);
       await BlockchainPlatform.instance

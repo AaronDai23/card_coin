@@ -27,9 +27,13 @@ class EncryptionManager {
   bool _enable = false;
   RSAPublicKey? _rsaPublicKey;
   Future<void>? _initializingFuture;
-  // 初始化失败重试计数，最多重试 _maxRetries 次
+  // 初始化失败重试计数，最多重试 _maxRetries 次；冷却后可再试（iOS 冷启动 DNS 抖动常见）
   int _retryCount = 0;
   static const int _maxRetries = 3;
+  static const Duration _retryCooldown = Duration(seconds: 3);
+  static const Duration _burstWindow = Duration(seconds: 2);
+  DateTime? _cooldownUntil;
+  DateTime? _lastFailedAt;
 
   static const String _cacheKeyPublicKey = 'enc_rsa_public_key';
   static const String _cacheKeyEnable = 'enc_enable';
@@ -40,15 +44,42 @@ class EncryptionManager {
   /// 是否已完成初始化
   bool get isInitialized => _initialized;
 
+  /// 强制允许再次拉取公钥（登录页解密失败等场景，不等冷却）
+  void allowRetry() {
+    _retryCount = 0;
+    _cooldownUntil = null;
+    _lastFailedAt = null;
+    _initialized = false;
+    _enable = false;
+    _rsaPublicKey = null;
+    _initializingFuture = null;
+    print('[EncryptionManager] allowRetry: state reset');
+  }
+
   /// 在拦截器中懒加载调用，获取并处理公钥
   /// [headers] 由拦截器传入，公钥请求将携带相同的业务请求头
   Future<void> initialize(String baseUrl,
       {Map<String, dynamic>? headers}) async {
     // 已成功初始化，直接返回
     if (_initialized && isEnabled) return;
-    // 超过重试次数，不再尝试
+
+    // 冷却结束后允许重新拉取公钥（网络从失败恢复后，安卓/iOS 都能继续解密）
+    final cooldownUntil = _cooldownUntil;
+    if (cooldownUntil != null && DateTime.now().isAfter(cooldownUntil)) {
+      print('[EncryptionManager] cooldown expired, resetting retry budget');
+      _cooldownUntil = null;
+      _retryCount = 0;
+      _lastFailedAt = null;
+      _initialized = false;
+      _enable = false;
+      _rsaPublicKey = null;
+    }
+
+    // 超过重试次数：短暂冷却，避免冷启动并发请求立刻打光重试次数后永久无法解密
     if (_initialized && !isEnabled && _retryCount >= _maxRetries) {
-      print('[EncryptionManager] max retries ($_maxRetries) reached, skip');
+      _cooldownUntil ??= DateTime.now().add(_retryCooldown);
+      print(
+          '[EncryptionManager] max retries ($_maxRetries) reached, cooldown until $_cooldownUntil');
       return;
     }
     // 正在初始化中，等待结束后返回
@@ -59,6 +90,16 @@ class EncryptionManager {
     }
     // 上次初始化失败/未能启用，重置状态再试
     if (_initialized && !isEnabled) {
+      final lastFailed = _lastFailedAt;
+      // iOS 冷启动并发请求 + HttpManager 自动重试会在极短时间内打满次数；
+      // 同一 burst 内不额外消耗预算，等短暂间隔后再真正重试。
+      if (lastFailed != null &&
+          DateTime.now().difference(lastFailed) < _burstWindow) {
+        _cooldownUntil ??= lastFailed.add(_burstWindow);
+        print(
+            '[EncryptionManager] burst window active, defer until $_cooldownUntil');
+        return;
+      }
       _retryCount++;
       _initialized = false;
       _enable = false;
@@ -178,6 +219,9 @@ class EncryptionManager {
           _rsaPublicKey = _parseRsaPublicKey(realPublicKeyBase64);
           print('[EncryptionManager] Step7 - RSA key parsed OK, '
               'modulus bits=${_rsaPublicKey!.modulus!.bitLength}');
+          _retryCount = 0;
+          _cooldownUntil = null;
+          _lastFailedAt = null;
           // 写入本地缓存，下次冷启动直接从缓存恢复
           LocalStorage.saveString(
               _cacheKeyPublicKey, realPublicKeyBase64); // fire-and-forget
@@ -196,6 +240,12 @@ class EncryptionManager {
     } finally {
       _initialized = true;
       _initializingFuture = null;
+      if (!isEnabled) {
+        _lastFailedAt = DateTime.now();
+        if (_retryCount >= _maxRetries) {
+          _cooldownUntil ??= DateTime.now().add(_retryCooldown);
+        }
+      }
       print('[EncryptionManager] initialized. isEnabled=$isEnabled');
     }
   }
@@ -206,6 +256,9 @@ class EncryptionManager {
     _enable = false;
     _rsaPublicKey = null;
     _initializingFuture = null;
+    _retryCount = 0;
+    _cooldownUntil = null;
+    _lastFailedAt = null;
     LocalStorage.saveString(_cacheKeyPublicKey, ''); // fire-and-forget
     LocalStorage.saveString(_cacheKeyEnable, 'false'); // fire-and-forget
   }

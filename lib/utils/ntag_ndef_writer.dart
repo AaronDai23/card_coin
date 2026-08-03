@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:card_coin/utils/hex_utils.dart';
@@ -101,8 +102,11 @@ class NtagNdefWriter {
 
   static String? readTagUidHex(NfcTag tag) {
     final candidates = <Uint8List?>[
+      // iOS CoreNFC: NTAG / Ultralight expose MiFare, not NfcA
+      MiFare.from(tag)?.identifier,
       NfcA.from(tag)?.identifier,
       MifareUltralight.from(tag)?.identifier,
+      Iso7816.from(tag)?.identifier,
       NdefFormatable.from(tag)?.identifier,
       IsoDep.from(tag)?.identifier,
       NfcB.from(tag)?.identifier,
@@ -117,38 +121,76 @@ class NtagNdefWriter {
     return null;
   }
 
+  /// Type-2 / Ultralight raw command: Android [NfcA.transceive], iOS [MiFare.sendMiFareCommand].
+  static Future<Uint8List?> _type2Transceive(NfcTag tag, List<int> cmd) async {
+    final packet = Uint8List.fromList(cmd);
+    final nfcA = NfcA.from(tag);
+    if (nfcA != null) {
+      try {
+        return await nfcA.transceive(data: packet);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (Platform.isIOS) {
+      final miFare = MiFare.from(tag);
+      if (miFare != null) {
+        try {
+          return await miFare.sendMiFareCommand(packet);
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
   /// Detect NTAG213/215/216. Oppo/ColorOS often drops RF during GET_VERSION;
   /// fall back to CC page / ATQA+SAK so health-check still runs.
+  /// iOS: same probes via MiFare (family often `.unknown` for NTAG213).
   static Future<NtagModel> detectModel(NfcTag tag) async {
     final nfcA = NfcA.from(tag);
-    if (nfcA == null) return NtagModel.unknown;
+    final miFare = Platform.isIOS ? MiFare.from(tag) : null;
+    if (nfcA == null && miFare == null) return NtagModel.unknown;
 
-    final fromAtqa = _modelFromAtqaSak(nfcA);
-
-    try {
-      final resp =
-          await nfcA.transceive(data: Uint8List.fromList([0x60])); // GET_VERSION
-      final fromVersion = _modelFromGetVersion(resp);
-      if (fromVersion != NtagModel.unknown) return fromVersion;
-    } catch (_) {
-      // continue to CC / ATQA
+    // iOS: 7-byte UID / ultralight → NTAG213 fast path（对齐 native ChipCore）
+    if (miFare != null) {
+      if (miFare.mifareFamily == MiFareFamily.ultralight ||
+          miFare.identifier.length == 7) {
+        // Still try GET_VERSION/CC when RF allows; otherwise assume 213.
+        final fromProbe = await _detectModelViaProbes(tag);
+        if (fromProbe != NtagModel.unknown) return fromProbe;
+        return NtagModel.ntag213;
+      }
     }
 
-    try {
-      // READ page 3 = Capability Container (E1 10 <size> 00)
-      final cc = await nfcA.transceive(data: Uint8List.fromList([0x30, 0x03]));
+    if (nfcA != null) {
+      final fromAtqa = _modelFromAtqaSak(nfcA);
+      final fromProbe = await _detectModelViaProbes(tag);
+      if (fromProbe != NtagModel.unknown) return fromProbe;
+      return fromAtqa;
+    }
+
+    return _detectModelViaProbes(tag);
+  }
+
+  static Future<NtagModel> _detectModelViaProbes(NfcTag tag) async {
+    final version = await _type2Transceive(tag, [0x60]); // GET_VERSION
+    if (version != null) {
+      final fromVersion = _modelFromGetVersion(version);
+      if (fromVersion != NtagModel.unknown) return fromVersion;
+    }
+    final cc = await _type2Transceive(tag, [0x30, 0x03]); // CC page 3
+    if (cc != null) {
       final fromCc = _modelFromCapabilityContainer(cc);
       if (fromCc != NtagModel.unknown) return fromCc;
-    } catch (_) {
-      // continue to ATQA
     }
-
-    return fromAtqa;
+    return NtagModel.unknown;
   }
 
   static NtagModel _modelFromGetVersion(Uint8List resp) {
-    if (resp.length < 8) return NtagModel.unknown;
-    // Byte6 = storage size encoding (NXP): 0x0F=213, 0x11=215, 0x13=216
+    // NXP GET_VERSION is 8 bytes; storage size at index 6 (accept len>=7)
+    if (resp.length < 7) return NtagModel.unknown;
     switch (resp[6]) {
       case 0x0F:
         return NtagModel.ntag213;
@@ -186,13 +228,27 @@ class NtagNdefWriter {
     return looksNtag ? NtagModel.ntag213 : NtagModel.unknown;
   }
 
-  /// True when the tag looks like a Type-2 NTAG (NfcA, no IsoDep).
+  /// True when the tag looks like a Type-2 NTAG (Android NfcA / iOS MiFare).
   static bool looksLikeNtag(NfcTag tag) {
     if (IsoDep.from(tag) != null) return false;
+    // CPU cards on iOS expose iso7816 — not NTAG.
+    if (Platform.isIOS && Iso7816.from(tag) != null) return false;
+
+    if (Platform.isIOS) {
+      final miFare = MiFare.from(tag);
+      if (miFare != null) {
+        // Classic is typically 4-byte UID; NTAG/Ultralight usually 7-byte.
+        if (miFare.mifareFamily == MiFareFamily.ultralight) return true;
+        if (miFare.identifier.length == 7) return true;
+        // unknown + NDEF still worth trying (parity with Android heuristic)
+        if (Ndef.from(tag) != null) return true;
+      }
+      return Ndef.from(tag) != null;
+    }
+
     final nfcA = NfcA.from(tag);
     if (nfcA == null) return false;
     if (_modelFromAtqaSak(nfcA) != NtagModel.unknown) return true;
-    // NDEF tech present on Ultralight-family is enough to attempt health check.
     return Ndef.from(tag) != null || MifareUltralight.from(tag) != null;
   }
 
@@ -481,17 +537,8 @@ class NtagNdefWriter {
     NtagModel model,
   ) async {
     if (model == NtagModel.unknown) return null;
-    final nfcA = NfcA.from(tag);
-    if (nfcA == null) return null;
-    try {
-      final pages = NtagConfigPages.forModel(model);
-      final resp = await nfcA.transceive(
-        data: Uint8List.fromList([0x30, pages.auth0]),
-      );
-      return resp;
-    } catch (_) {
-      return null;
-    }
+    final pages = NtagConfigPages.forModel(model);
+    return _type2Transceive(tag, [0x30, pages.auth0]);
   }
 
   /// Decide protection from a config block. AUTH0 is **byte 3 of CFG0**

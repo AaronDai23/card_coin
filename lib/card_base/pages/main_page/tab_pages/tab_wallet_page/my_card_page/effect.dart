@@ -684,9 +684,9 @@ bool? _parseConfigActivated(dynamic raw) {
 Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
   // Flow (NTAG + CPU, one NFC dialog):
   // 1) native reads real tag uid
-  // 2) Flutter POST smartCard/config with **that** uid → this card's ndefDomain
+  // 2) Flutter POST smartCard/config with **that** uid
   // 3) build URL from that domain + Base64(tag uid)
-  // 4) native writes NDEF on the same connection
+  // 4) native writes NDEF on the same connection (iOS: RF keepalive during HTTP)
   // Each card may have a different bound domain — never reuse another card's.
 
   int now = DateTime.now().millisecondsSinceEpoch;
@@ -888,7 +888,22 @@ Future<void> _onScanCardClick(Action action, Context<MyCardState> ctx) async {
       }
     } else {
       print("write ndef fail");
-      if (scanResponse.message != "Session invalidated by user" &&
+      if (chipResp.isClassicUnsupported ||
+          chipResp.errorCode == 'classic-unsupported') {
+        // iOS 无法写 Classic：友好引导去安卓，不走 unlockTip 技术错误
+        if (ctx.context.mounted) {
+          await showDialog(
+            context: ctx.context,
+            builder: (_) {
+              return const ZenggeTextAlertDialog(
+                '当前卡片为 Mifare Classic，iPhone 无法写入链接。\n请使用安卓手机完成写入。',
+                enableCancel: false,
+                confirmText: '知道了',
+              );
+            },
+          );
+        }
+      } else if (scanResponse.message != "Session invalidated by user" &&
           scanResponse.message != "System resource unavailable" &&
           scanResponse.message != "用户已取消") {
         if (scanResponse.message != null &&

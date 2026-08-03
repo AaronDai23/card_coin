@@ -4,8 +4,9 @@ import 'package:flutter/services.dart';
 
 /// Live smartCard/config + NFC write, owned by card_coin.
 ///
-/// Registers the MethodChannel handler here so inactive-card confirm
-/// (`needsWriteConfirm`) does not depend on chipcore_sdk Dart API churn.
+/// One NFC dialog (iOS & Android): native reads uid → Flutter HTTP config →
+/// native writes NDEF on the same session. iOS keeps RF alive with Type2
+/// READ pings during the HTTP wait (see chipcore_sdk NfcCardSession).
 class SmartCardLiveConfigScan {
   static const MethodChannel _channel =
       MethodChannel('com.chipcore.sdk/nfc_session');

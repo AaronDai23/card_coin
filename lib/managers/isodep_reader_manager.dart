@@ -367,7 +367,11 @@ class IsoDepReaderManager {
       if (_iso7816commandApi.aesKey == null) {
         throw Exception('aesKey is empty');
       }
-      return [..._iso7816commandApi.aesKey ?? [], ..._iso7816Dep.identifier];
+      // 与 Android / ChipCore iOS 一致：SELECT 响应 + UID 前 4 字节
+      return [
+        ..._iso7816commandApi.aesKey ?? [],
+        ..._iso7816Dep.identifier.take(4),
+      ];
     }
   }
 

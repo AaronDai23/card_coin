@@ -9,6 +9,8 @@ import SwiftUI
 
 @main
 struct ClipApp: App {
+    @UIApplicationDelegateAdaptor(ClipAppDelegate.self) private var appDelegate
+
     var body: some Scene {
         WindowGroup {
             ClipContentView()

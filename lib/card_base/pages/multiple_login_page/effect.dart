@@ -15,6 +15,7 @@ import '../../../custom_widget/progress_dialog/progress_dialog.dart';
 import '../../../http/address.dart';
 import '../../../http/http_manager.dart';
 import '../../../http/result_data.dart';
+import '../../../managers/encryption_manager.dart';
 import '../../bean/country_register_info.dart';
 import '../../bean/login_bean.dart';
 import 'action.dart';
@@ -167,10 +168,11 @@ Future<void> _onInit(Action action, Context<MultipleLoginState> ctx) async {
   }
 
   // 首次加载失败（解密未就绪或网络抖动）且缓存为空时，静默重试一次
-  // EncryptionManager 已在 onRequest 中触发了重试，这里再发一次请求
+  // iOS 冷启动 DNS 抖动后 EncryptionManager 可能已耗尽重试，强制允许再拉公钥
   // 注意：HttpManager.get() 内置了一次自动重试，此处用 autoRetry:false 避免叠加
   if (ctx.state.loginMethodList.isEmpty) {
     print('[multiple_login] first attempt failed/empty, retrying silently...');
+    EncryptionManager.instance.allowRetry();
     final retryResult = await HttpManager.getInstance()
         .get(NetworkAddress.loginMethodUrl, autoRetry: false);
     if (retryResult.isSuccess) {

@@ -7,6 +7,7 @@ import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/http_manager.dart';
 import 'package:card_coin/managers/isodep_reader_manager.dart';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
+import 'package:card_coin/utils/hex_utils.dart';
 import 'package:card_coin/utils/mifare_classic_util.dart';
 import 'package:card_coin/utils/ntag_ndef_writer.dart';
 import 'package:card_coin/utils/string_util.dart';
@@ -210,16 +211,18 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
           isoDepAndroid = IsoDep.from(tag);
         }
       } else {
+        // iOS: any iso7816 → CPU path（与 Android「有 IsoDep 即 CPU」对齐）
+        // 不再硬卡 initialSelectedAID，避免 AID 格式差异漏检
         if (tag.data.keys.contains('iso7816')) {
-          final iso7816 = Iso7816.from(tag);
-          if (iso7816!.initialSelectedAID == '6864696E7374616361736800') {
-            print('read iso7816:$iso7816');
-            isoDepIos = iso7816;
-          }
+          isoDepIos = Iso7816.from(tag);
+          print(
+            'read iso7816 aid=${isoDepIos?.initialSelectedAID} '
+            'uid=${isoDepIos != null ? HexUtils.uint8ListToHex(isoDepIos.identifier) : ""}',
+          );
         }
       }
 
-      // Classic / NTAG: no IsoDep → health check (UID / NDEF / write lock).
+      // Classic / NTAG: no IsoDep / Iso7816 → memory-card health check.
       if (isoDepAndroid == null && isoDepIos == null) {
         final classic = MifareClassic.from(tag);
         if (classic != null) {
@@ -228,11 +231,27 @@ Future<void> _onStartAction(Action action, Context<CheckCardState> ctx) async {
           await _finishCheckSession();
           return;
         }
+
+        // iOS 无法扇区访问 Classic：4 字节 MiFare 且不像 NTAG → 友好提示
+        if (Platform.isIOS) {
+          final miFare = MiFare.from(tag);
+          if (miFare != null &&
+              miFare.identifier.length == 4 &&
+              miFare.mifareFamily != MiFareFamily.ultralight &&
+              !NtagNdefWriter.looksLikeNtag(tag)) {
+            showToast('当前卡片为 Mifare Classic，iPhone 无法完成全部检测，请使用安卓手机');
+            await _runIosClassicLimitedHealthCheck(ctx, tag);
+            ctx.state.timer?.cancel();
+            await _finishCheckSession();
+            return;
+          }
+        }
+
         var model = await NtagNdefWriter.detectModel(tag);
         if (model == NtagModel.unknown && NtagNdefWriter.looksLikeNtag(tag)) {
-          // Oppo often loses GET_VERSION; still run NTAG checklist as 213.
+          // Oppo / iOS 常丢 GET_VERSION；仍按 NTAG213 跑同一套检测项
           model = NtagModel.ntag213;
-          print('NTAG detect fallback → ntag213 (ATQA/NDEF heuristic)');
+          print('NTAG detect fallback → ntag213 (ATQA/NDEF/MiFare heuristic)');
         }
         if (model != NtagModel.unknown) {
           await _runNtagHealthCheck(ctx, tag, model);
@@ -670,6 +689,59 @@ Future<void> _runNtagHealthCheck(
     ndefUrl: ndefUrl,
     locked: locked,
     lockUnknown: false,
+  );
+}
+
+/// iOS: Classic 无扇区 API，检测项与 Android 一致但 lock=Unknown，尽量读 UID/NDEF。
+Future<void> _runIosClassicLimitedHealthCheck(
+  Context<CheckCardState> ctx,
+  NfcTag tag,
+) async {
+  final languageResource = ctx.state.languageResource!;
+  ctx.state.cardTech = 'CLASSIC';
+  var list = _ntagCheckList(languageResource)
+      .map((e) => e.copyWith(status: HealthStatus.process))
+      .toList();
+  ctx.dispatch(CheckCardActionCreator.onInitTask(list));
+
+  String uidHex = '';
+  String? ndefUrl;
+  try {
+    uidHex = NtagNdefWriter.readTagUidHex(tag) ?? '';
+    final ndef = Ndef.from(tag);
+    if (ndef != null) {
+      try {
+        final msg = await ndef.read();
+        for (final record in msg.records) {
+          if (record.typeNameFormat == NdefTypeNameFormat.nfcWellknown &&
+              record.type.isNotEmpty &&
+              record.type[0] == 0x55 &&
+              record.payload.isNotEmpty) {
+            final prefixIndex = record.payload[0];
+            final prefix = prefixIndex < NdefRecord.URI_PREFIX_LIST.length
+                ? NdefRecord.URI_PREFIX_LIST[prefixIndex]
+                : '';
+            ndefUrl =
+                prefix + String.fromCharCodes(record.payload.sublist(1));
+            break;
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+  } catch (e) {
+    print('iOS Classic limited health error: $e');
+  }
+
+  await _fillMemoryCardHealthResults(
+    ctx,
+    list: list,
+    uidHex: uidHex,
+    ndefUrl: ndefUrl,
+    locked: false,
+    lockUnknown: true,
+    lockResultOverride: 'Unknown (iOS)',
   );
 }
 

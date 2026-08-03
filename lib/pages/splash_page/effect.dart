@@ -201,10 +201,90 @@ Future<void> _refreshLocalizationFromServer() async {
 
 void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
   StartupTime.printElapsed('appsflyer_init_begin');
+
+  Future<void> gotoMainPage() async {
+    final gt0 = DateTime.now().millisecondsSinceEpoch;
+    print('[TIMING][Splash] gotoMainPage start, t=$gt0');
+    StartupTime.printElapsed('goto_main_page_begin');
+
+    // DeepLink 冷启动保护：若 DeepLinkManager 已将用户导航到真实页面，
+    // SplashPage 的 gotoMainPage 不应再清栈，否则会把 DeepLink 推入的页面清掉。
+    // 约定：栈顶为 splashPage 路由名('/')、骨架屏('_deepLinkLoading')或 null
+    // 时才允许正常导航；其他情况说明 DeepLink 已占据导航主导权，直接 return。
+    final routes = <String>{
+      'cardBaseMainPage',
+      'scanLoginPage',
+      'mainPage',
+      'multipleLoginPage',
+      '/',
+      'splashPage',
+      '_deepLinkLoading',
+    };
+    String? currentTop;
+    navigatorKey.currentState?.popUntil((route) {
+      currentTop = route.settings.name;
+      return true;
+    });
+    if (currentTop != null && !routes.contains(currentTop)) {
+      print(
+          '[TIMING][Splash] gotoMainPage: SKIP, DeepLink already navigated to $currentTop');
+      return;
+    }
+
+    var appId = AppConfig.of(ctx.context).appInternalId;
+    if (appId == AppType.lite || appId == AppType.pro) {
+      print(
+          '[TIMING][Splash] navigating to mainPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+      Navigator.pushNamedAndRemoveUntil(
+          ctx.context, 'mainPage', (route) => false);
+    } else {
+      print(
+          '[TIMING][Splash] calling getUserInfo, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+      var userInfo = await LocalStorage.getUserInfo();
+      print(
+          '[TIMING][Splash] getUserInfo done, userInfo=${userInfo != null ? "exists" : "null"}, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+      if (userInfo != null) {
+        print(
+            '[TIMING][Splash] navigating to cardBaseMainPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+        Navigator.pushNamedAndRemoveUntil(
+            ctx.context, 'cardBaseMainPage', (route) => false);
+      } else {
+        print(
+            '[TIMING][Splash] navigating to scanLoginPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+        // Give prefetch a short window so first-open carousel is already warm.
+        await ScanLoginPrefetch.waitReady(
+          timeout: const Duration(milliseconds: 1200),
+        );
+        if (!ctx.context.mounted) return;
+        // Opaque white ScanLogin route (see app.dart) — seamless over splash logo.
+        Navigator.pushNamedAndRemoveUntil(
+            ctx.context, 'scanLoginPage', (route) => false);
+      }
+    }
+    print(
+        '[TIMING][Splash] gotoMainPage complete, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
+  }
+
+  final afDevKey = (dotenv.env['DEV_KEY'] ?? '').replaceAll('"', '').trim();
+  final appId = (dotenv.env['APP_ID'] ?? '').replaceAll('"', '').trim();
+  // iOS 要求 APP_ID 为纯数字 Apple App ID；空/非法时 SDK 会 assert。
+  // 跳过 SDK 时仍必须进入主流程，否则会卡在启动页。
+  final skipAppsFlyer = afDevKey.isEmpty ||
+      (Platform.isIOS && !RegExp(r'^\d+$').hasMatch(appId));
+  if (skipAppsFlyer) {
+    if (afDevKey.isEmpty) {
+      print('appsflyer skip: DEV_KEY empty');
+    } else {
+      print('appsflyer skip: iOS APP_ID must be numeric Apple ID, got "$appId"');
+    }
+    await gotoMainPage();
+    return;
+  }
+
   // SDK Options
   final AppsFlyerOptions options = AppsFlyerOptions(
-      afDevKey: dotenv.env["DEV_KEY"]!,
-      appId: dotenv.env["APP_ID"]!,
+      afDevKey: afDevKey,
+      appId: appId,
       showDebug: true,
       timeToWaitForATTUserAuthorization: 15,
       manualStart: true);
@@ -304,69 +384,6 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
     appsflyerSdk.performOnDeepLinking();
   }
 
-  void gotoMainPage() async {
-    final gt0 = DateTime.now().millisecondsSinceEpoch;
-    print('[TIMING][Splash] gotoMainPage start, t=$gt0');
-    StartupTime.printElapsed('goto_main_page_begin');
-
-    // DeepLink 冷启动保护：若 DeepLinkManager 已将用户导航到真实页面，
-    // SplashPage 的 gotoMainPage 不应再清栈，否则会把 DeepLink 推入的页面清掉。
-    // 约定：栈顶为 splashPage 路由名('/')、骨架屏('_deepLinkLoading')或 null
-    // 时才允许正常导航；其他情况说明 DeepLink 已占据导航主导权，直接 return。
-    final routes = <String>{
-      'cardBaseMainPage',
-      'scanLoginPage',
-      'mainPage',
-      'multipleLoginPage',
-      '/',
-      'splashPage',
-      '_deepLinkLoading',
-    };
-    String? currentTop;
-    navigatorKey.currentState?.popUntil((route) {
-      currentTop = route.settings.name;
-      return true;
-    });
-    if (currentTop != null && !routes.contains(currentTop)) {
-      print(
-          '[TIMING][Splash] gotoMainPage: SKIP, DeepLink already navigated to $currentTop');
-      return;
-    }
-
-    var appId = AppConfig.of(ctx.context).appInternalId;
-    if (appId == AppType.lite || appId == AppType.pro) {
-      print(
-          '[TIMING][Splash] navigating to mainPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
-      Navigator.pushNamedAndRemoveUntil(
-          ctx.context, 'mainPage', (route) => false);
-    } else {
-      print(
-          '[TIMING][Splash] calling getUserInfo, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
-      var userInfo = await LocalStorage.getUserInfo();
-      print(
-          '[TIMING][Splash] getUserInfo done, userInfo=${userInfo != null ? "exists" : "null"}, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
-      if (userInfo != null) {
-        print(
-            '[TIMING][Splash] navigating to cardBaseMainPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
-        Navigator.pushNamedAndRemoveUntil(
-            ctx.context, 'cardBaseMainPage', (route) => false);
-      } else {
-        print(
-            '[TIMING][Splash] navigating to scanLoginPage, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
-        // Give prefetch a short window so first-open carousel is already warm.
-        await ScanLoginPrefetch.waitReady(
-          timeout: const Duration(milliseconds: 1200),
-        );
-        if (!ctx.context.mounted) return;
-        // Opaque white ScanLogin route (see app.dart) — seamless over splash logo.
-        Navigator.pushNamedAndRemoveUntil(
-            ctx.context, 'scanLoginPage', (route) => false);
-      }
-    }
-    print(
-        '[TIMING][Splash] gotoMainPage complete, t=${DateTime.now().millisecondsSinceEpoch - gt0}ms');
-  }
-
   // GooglePlayServicesAvailability availability = await GoogleApiAvailability
   //     .instance
   //     .checkGooglePlayServicesAvailability();
@@ -387,7 +404,7 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
   //   await completer.future.timeout(Duration(seconds: 5),onTimeout: () => gotoMainPage());
   //   gotoMainPage();
   // } else {
-  gotoMainPage();
+  await gotoMainPage();
   // }
 }
 
