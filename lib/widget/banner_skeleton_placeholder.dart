@@ -57,7 +57,6 @@ class BannerSkeletonPlaceholder extends StatelessWidget {
 
 class _ShimmerBox extends StatefulWidget {
   const _ShimmerBox({
-    this.width,
     this.height,
     required this.radius,
   });

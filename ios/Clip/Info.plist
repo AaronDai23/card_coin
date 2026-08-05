@@ -15,5 +15,9 @@
 		<key>NSAppClipRequestLocationConfirmation</key>
 		<false/>
 	</dict>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>chipbase</string>
+	</array>
 </dict>
 </plist>

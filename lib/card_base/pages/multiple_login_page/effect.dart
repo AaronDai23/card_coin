@@ -336,8 +336,24 @@ Future<void> _faceLogin(Action action, Context<MultipleLoginState> ctx) async {
     pr.hide();
     return;
   }
-  final publickey = await BlockchainPlatform.instance.generateKey();
-  final credential = await _loginWithFace(ctx);
+  late final String publickey;
+  late final String credential;
+  try {
+    // Device Secure Enclave / Keystore key — must NOT open NFC.
+    publickey = await BlockchainPlatform.instance.generateKey();
+    credential = await _loginWithFace(ctx);
+  } catch (e) {
+    pr.hide();
+    print('faceLogin native error: $e');
+    showToast("Face ID failed: $e", position: const ToastPosition(offset: 150));
+    return;
+  }
+  if (credential.isEmpty) {
+    pr.hide();
+    showToast("Face ID verification failed",
+        position: const ToastPosition(offset: 150));
+    return;
+  }
   var params = {
     "credential": credential,
     "identifierCarrier": Platform.isAndroid ? 'TOUCH_ID' : 'FACE_ID',

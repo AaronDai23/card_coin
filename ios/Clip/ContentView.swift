@@ -154,7 +154,7 @@ struct ClipContentView: View {
 
         // Fresh invocation (new card tap / continue activity).
         if store.invocationEpoch != lastOpenedEpoch {
-            openInBrowser(url, reason: reason)
+            handOffToAppOrBrowser(url, reason: reason)
             return
         }
 
@@ -167,24 +167,60 @@ struct ClipContentView: View {
                 print("🟡 [Clip] Skip sceneActive reopen (cooldown)")
                 return
             }
-            openInBrowser(url, reason: reason)
+            handOffToAppOrBrowser(url, reason: reason)
         }
     }
 
-    private func openInBrowser(_ url: URL, reason: String) {
-        // Debounce duplicate callbacks (AppDelegate + SwiftUI) within 1.2s.
+    /// Prefer full ChipBase app (chipbase://) when installed; else Safari.
+    private func handOffToAppOrBrowser(_ url: URL, reason: String) {
         let now = Date()
         if let last = lastOpenAttemptAt,
            store.invocationEpoch == lastOpenedEpoch,
            now.timeIntervalSince(last) < 1.2,
            reason != "button" {
-            print("🟡 [Clip] Skip duplicate open (\(reason))")
+            print("🟡 [Clip] Skip duplicate handoff (\(reason))")
             return
         }
 
         lastOpenedEpoch = store.invocationEpoch
         lastOpenAttemptAt = now
         openError = nil
+
+        if let appURL = makeFullAppHandoffURL(ndef: url),
+           UIApplication.shared.canOpenURL(appURL) {
+            print("🟢 [Clip] Hand off to full app (\(reason)): \(appURL.absoluteString)")
+            UIApplication.shared.open(appURL, options: [:]) { success in
+                DispatchQueue.main.async {
+                    if success {
+                        print("🟢 [Clip] Full app opened")
+                    } else {
+                        print("🟡 [Clip] Full app open failed — fallback Safari")
+                        self.openInBrowser(url, reason: "\(reason)-fallback")
+                    }
+                }
+            }
+            return
+        }
+
+        openInBrowser(url, reason: reason)
+    }
+
+    private func makeFullAppHandoffURL(ndef: URL) -> URL? {
+        var components = URLComponents()
+        components.scheme = "chipbase"
+        components.host = "ndef"
+        components.queryItems = [URLQueryItem(name: "url", value: ndef.absoluteString)]
+        return components.url
+    }
+
+    private func openInBrowser(_ url: URL, reason: String) {
+        // Debounce already applied in handOff; button can call this directly.
+        if reason == "button" {
+            let now = Date()
+            lastOpenedEpoch = store.invocationEpoch
+            lastOpenAttemptAt = now
+            openError = nil
+        }
         print("🟢 [Clip] Opening browser (\(reason)): \(url.absoluteString)")
 
         UIApplication.shared.open(url, options: [:]) { success in

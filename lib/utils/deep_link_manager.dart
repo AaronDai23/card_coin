@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // 1️⃣ 定义事件类
 class ReloadMainDataEvent {}
@@ -65,47 +66,64 @@ class DeepLinkManager {
     final t0 = DateTime.now().millisecondsSinceEpoch;
     print('[TIMING][DeepLink] init start, t=$t0');
 
+    // iOS App Clip / warm NDEF: native pushes links here.
+    const deeplinkChannel = MethodChannel('com.cardbase.app/deeplink');
+    deeplinkChannel.setMethodCallHandler((call) async {
+      if (call.method != 'onIncomingLink') return;
+      final linkStr = call.arguments?.toString();
+      if (linkStr == null || linkStr.isEmpty) return;
+      final uri = Uri.tryParse(linkStr);
+      if (uri == null || !_isHandledLink(uri)) {
+        print('[DeepLink] onIncomingLink ignored: $linkStr');
+        return;
+      }
+      print('[DeepLink] onIncomingLink: $uri');
+      _handleDeepLink(uri);
+    });
+
     // 1. 处理冷启动链接
     Uri? initialUri;
     const channel = MethodChannel('com.walletconnect.flutterwallet/methods');
 
-    if (Platform.isAndroid) {
-      // ① 首选：MethodChannel
+    // AppDelegate 会把 App Clip / Universal Link 的 webpageURL 写入 initialLink。
+    // iOS / Android 都优先读，避免仅靠 app_links 漏接拍卡唤起。
+    try {
+      print(
+          '[TIMING][DeepLink] calling MethodChannel initialLink, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
+      final String? linkStr = await channel
+          .invokeMethod<String?>('initialLink')
+          .timeout(const Duration(milliseconds: 800), onTimeout: () => null);
+      print(
+          '[TIMING][DeepLink] MethodChannel returned: $linkStr, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
+      if (linkStr != null && linkStr.isNotEmpty) {
+        initialUri = Uri.tryParse(linkStr);
+      }
+    } catch (e) {
+      print('[DeepLink] init: MethodChannel error: $e');
+    }
+
+    if (initialUri == null) {
       try {
         print(
-            '[TIMING][DeepLink] calling MethodChannel initialLink, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
-        final String? linkStr = await channel
-            .invokeMethod<String?>('initialLink')
-            .timeout(const Duration(milliseconds: 800), onTimeout: () => null);
-        print(
-            '[TIMING][DeepLink] MethodChannel returned: $linkStr, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
-        if (linkStr != null && linkStr.isNotEmpty) {
-          initialUri = Uri.tryParse(linkStr);
-        }
-      } catch (e) {
-        print('[DeepLink] init: MethodChannel error: $e');
-      }
-
-      // ② Fallback：app_links
-      if (initialUri == null) {
-        try {
-          print(
-              '[TIMING][DeepLink] calling getInitialAppLink, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
+            '[TIMING][DeepLink] calling getInitialAppLink, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
+        if (Platform.isAndroid) {
           initialUri = await _appLinks
               .getInitialAppLink()
               .timeout(const Duration(seconds: 2), onTimeout: () => null);
-          print(
-              '[TIMING][DeepLink] getInitialAppLink returned: $initialUri, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
-        } catch (e) {
-          print('[DeepLink] init: getInitialAppLink error: $e');
+        } else {
+          // iOS: App Clip 冷启动偶发挂起，加超时
+          initialUri = await _appLinks
+              .getInitialAppLink()
+              .timeout(const Duration(seconds: 2), onTimeout: () => null);
         }
+        print(
+            '[TIMING][DeepLink] getInitialAppLink returned: $initialUri, t=${DateTime.now().millisecondsSinceEpoch - t0}ms');
+      } catch (e) {
+        print('[DeepLink] init: getInitialAppLink error: $e');
       }
-    } else {
-      initialUri = await _appLinks.getInitialAppLink();
-      print('[DeepLink] init: getInitialAppLink returned: $initialUri');
     }
 
-    if (initialUri != null && _isTargetHttpsLink(initialUri)) {
+    if (initialUri != null && _isHandledLink(initialUri)) {
       _coldStartUri = initialUri;
       _coldStartTime = DateTime.now();
       _handleDeepLink(initialUri, isColdStart: true);
@@ -116,7 +134,7 @@ class DeepLinkManager {
     // 2. 全局监听热启动链接（全程不取消，除非 App 退出）
     _hotLinkSubscription ??= _appLinks.uriLinkStream.listen((Uri? uri) {
       print('[DeepLink] uriLinkStream: $uri');
-      if (uri == null || !_isTargetHttpsLink(uri)) return;
+      if (uri == null || !_isHandledLink(uri)) return;
       // 过滤冷启动 URI 的重复投递（app_links 在 Android 上可能双重投递）
       if (_coldStartUri != null &&
           _coldStartTime != null &&
@@ -130,7 +148,17 @@ class DeepLinkManager {
     });
   }
 
-  /// 判断是否是目标 https 链接
+  /// asset.dropromo.com = 业务 Deep Link；c.dropromo.com = NFC / App Clip NDEF。
+  bool _isHandledLink(Uri uri) {
+    if (uri.scheme != 'https') return false;
+    return uri.host == 'asset.dropromo.com' || uri.host == 'c.dropromo.com';
+  }
+
+  bool _isNdefAppClipLink(Uri uri) {
+    return uri.scheme == 'https' && uri.host == 'c.dropromo.com';
+  }
+
+  /// 判断是否是目标 https 链接（业务页）
   bool _isTargetHttpsLink(Uri uri) {
     return uri.scheme == 'https' && uri.host == 'asset.dropromo.com';
   }
@@ -142,41 +170,34 @@ class DeepLinkManager {
       print('DeepLinkManager: 扫卡中，忽略 URI（$uri）');
       return;
     }
-    // 通过全局导航键获取 NavigatorState，无需当前页面 context
 
-    // ========== 核心：统一跳转规则（适配任意页面） ==========
-    // switch (path) {
-    //   // 示例1：跳卡片详情页（清空之前的栈，只保留详情页/首页）
-    //   case '/open/page':
-    //   case '/open':
-    //   case '/card/':
-    //   case '/card/123': // 支持带 ID 的路径
+    // 拍卡 / App Clip：主 App 被系统拉起后，主动用浏览器打开 NDEF URL。
+    if (_isNdefAppClipLink(uri)) {
+      unawaited(_openNdefInBrowser(uri));
+      return;
+    }
+
+    if (!_isTargetHttpsLink(uri)) {
+      print('[DeepLink] ignore non-target uri=$uri');
+      return;
+    }
 
     _onRegister(uri, isColdStart: isColdStart);
-    // String cardId = params['cardId'] ??
-    //     (path.split('/').length > 2 ? path.split('/')[2] : '');
-    // navigator.pushAndRemoveUntil(
-    //   MaterialPageRoute(builder: (context) => CardDetailPage(cardId: cardId)),
-    //   (route) => route.isFirst, // 保留栈底的首页（可选，根据业务调整）
-    // );
-    //   break;
+  }
 
-    // // 示例2：跳下载页（直接打开，保留当前栈）
-    // case '/download':
-    // navigator.push(
-    //   MaterialPageRoute(builder: (context) => DownloadPage(version: version)),
-    // );
-    //   break;
-
-    // // 示例3：跳首页（清空所有栈，回到首页）
-    // case '/register':
-    // default:
-    //   // navigator.pushAndRemoveUntil(
-    //   //   MaterialPageRoute(builder: (context) => const HomePage()),
-    //   //   (route) => false, // 清空所有栈
-    //   // );
-    //   break;
-    // }
+  Future<void> _openNdefInBrowser(Uri uri) async {
+    print('[DeepLink] App Clip / NDEF → open browser: $uri');
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        showToast('Unable to open browser',
+            position: const ToastPosition(offset: 150));
+      }
+    } catch (e) {
+      print('[DeepLink] open NDEF browser failed: $e');
+      showToast('Unable to open browser: $e',
+          position: const ToastPosition(offset: 150));
+    }
   }
 
   /// 取消全局监听（App 退出时调用，可选）

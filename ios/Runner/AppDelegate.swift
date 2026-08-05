@@ -19,7 +19,20 @@ import Flutter
     GeneratedPluginRegistrant.register(with: self)
 
     if let url = launchOptions?[.url] as? URL {
-      initialLink = url.absoluteString
+      if let ndef = Self.ndefUrl(fromCustomScheme: url) {
+        initialLink = ndef.absoluteString
+      } else {
+        initialLink = url.absoluteString
+      }
+    } else if let activityDict = launchOptions?[.userActivityDictionary] as? [AnyHashable: Any] {
+      for value in activityDict.values {
+        if let activity = value as? NSUserActivity,
+           activity.activityType == NSUserActivityTypeBrowsingWeb,
+           let pageURL = activity.webpageURL {
+          initialLink = pageURL.absoluteString
+          break
+        }
+      }
     }
 
     // 与 Android configureFlutterEngine 对齐：在 Dart main 跑起来之前注册 WC channel，
@@ -73,12 +86,16 @@ import Flutter
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    let link = url.absoluteString
-    if initialLink == nil {
-      initialLink = link
-    }
-    if url.scheme?.contains("wc") == true {
-      eventSink?(link)
+    if let ndef = Self.ndefUrl(fromCustomScheme: url) {
+      deliverIncomingLink(ndef.absoluteString)
+    } else {
+      let link = url.absoluteString
+      if initialLink == nil {
+        initialLink = link
+      }
+      if url.scheme?.contains("wc") == true {
+        eventSink?(link)
+      }
     }
     return super.application(app, open: url, options: options)
   }
@@ -90,17 +107,53 @@ import Flutter
   ) -> Bool {
     if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
        let url = userActivity.webpageURL {
-      let link = url.absoluteString
-      if initialLink == nil {
-        initialLink = link
-      }
-      eventSink?(link)
+      deliverIncomingLink(url.absoluteString)
     }
     return super.application(
       application,
       continue: userActivity,
       restorationHandler: restorationHandler
     )
+  }
+
+  /// Cold start + warm start: push NDEF / App Clip URL into Flutter DeepLinkManager.
+  private func deliverIncomingLink(_ link: String) {
+    if initialLink == nil {
+      initialLink = link
+    }
+    eventSink?(link)
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      // Window may not be ready on cold start; initialLink covers that path.
+      return
+    }
+    FlutterMethodChannel(
+      name: "com.cardbase.app/deeplink",
+      binaryMessenger: controller.binaryMessenger
+    ).invokeMethod("onIncomingLink", arguments: link)
+  }
+
+  /// chipbase://ndef?url=https%3A%2F%2Fc.dropromo.com%2F...
+  private static func ndefUrl(fromCustomScheme url: URL) -> URL? {
+    guard url.scheme?.lowercased() == "chipbase" else { return nil }
+    guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+      return nil
+    }
+    let host = (components.host ?? "").lowercased()
+    let path = components.path.lowercased()
+    guard host == "ndef" || path == "/ndef" || path.hasSuffix("ndef") else {
+      // Also accept chipbase://open?url=...
+      guard host == "open" || path.contains("open") else { return nil }
+      if let raw = components.queryItems?.first(where: { $0.name == "url" })?.value,
+         let ndef = URL(string: raw) {
+        return ndef
+      }
+      return nil
+    }
+    guard let raw = components.queryItems?.first(where: { $0.name == "url" })?.value,
+          let ndef = URL(string: raw) else {
+      return nil
+    }
+    return ndef
   }
 }
 
