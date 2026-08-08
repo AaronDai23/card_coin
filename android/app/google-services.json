@@ -1,13 +1,15 @@
+
+
 {
   "project_info": {
-    "project_number": "155942814471",
-    "project_id": "chipbase-b136e",
-    "storage_bucket": "chipbase-b136e.firebasestorage.app"
+    "project_number": "895817669834",
+    "project_id": "offervas-a7ed1",
+    "storage_bucket": "offervas-a7ed1.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:155942814471:android:9247215ed975c190dcbba2",
+        "mobilesdk_app_id": "1:895817669834:android:f6ce2f025182c15ee66833",
         "android_client_info": {
           "package_name": "com.cardcoin.bestwish"
         }
@@ -15,45 +17,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDXtB0hooGtKQUc2G8AwMXsaTwPgWsgGKI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:155942814471:android:9247215ed975c190dcbba2",
-        "android_client_info": {
-          "package_name": "com.cardcoin.bestwish_lite"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDXtB0hooGtKQUc2G8AwMXsaTwPgWsgGKI"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:155942814471:android:9247215ed975c190dcbba2",
-        "android_client_info": {
-          "package_name": "com.cardcoin.lite"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDXtB0hooGtKQUc2G8AwMXsaTwPgWsgGKI"
+          "current_key": "AIzaSyDm1f5EbtxIwOCV8Z9krF1zOqc7hC1qZBU"
         }
       ],
       "services": {

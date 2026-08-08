@@ -244,9 +244,11 @@ packages:
   chipcore_sdk:
     dependency: "direct main"
     description:
-      path: "../chipcore_sdk"
-      relative: true
-    source: path
+      path: "."
+      ref: main
+      resolved-ref: "8f9175b1606c5e9a1d9a869d7a44e1adea3c6a9e"
+      url: "https://github.com/AaronDai23/chipcore_sdk.git"
+    source: git
     version: "1.0.0+1"
   clock:
     dependency: transitive
