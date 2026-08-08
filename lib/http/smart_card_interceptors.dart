@@ -141,8 +141,22 @@ class SmartCardInterceptors extends InterceptorsWrapper {
 
     var packageInfo = await PackageInfo.fromPlatform();
 
-    var stringResource =
-        AppConfig.of(navigatorKey.currentContext!).stringResource;
+    // Prefer static config — navigatorKey.currentContext is often null during
+    // early Dio calls (before MaterialApp / Navigator mounts).
+    final stringResource = AppConfig.current?.stringResource ??
+        (navigatorKey.currentContext != null
+            ? AppConfig.of(navigatorKey.currentContext!).stringResource
+            : null);
+    if (stringResource == null) {
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          error: StateError('AppConfig not ready'),
+          type: DioExceptionType.unknown,
+        ),
+      );
+      return;
+    }
     final uid = await LocalStorage.getCardUuid();
     final cachedLocale = await LocalStorage.getLocale();
     // 请求语言仅跟随用户已保存的语言；未保存时强制英文，避免首启被系统语言带偏。

@@ -68,6 +68,8 @@ import 'package:card_coin/pages/main_page/write_ntag_page/page.dart';
 import 'package:card_coin/pages/scan_qrcode_page/page.dart';
 import 'package:card_coin/pages/splash_page/page.dart';
 import 'package:card_coin/pages/webview_page/page.dart';
+import 'package:card_coin/observability/analytics_route_observer.dart';
+import 'package:card_coin/observability/firebase_analytics_service.dart';
 import 'package:card_coin/observability/otel_route_observer.dart';
 import 'package:card_coin/reown_wallet/bottom_sheet/bottom_sheet_service.dart';
 import 'package:card_coin/reown_wallet/bottom_sheet/i_bottom_sheet_service.dart';
@@ -510,6 +512,8 @@ Future<void> mainCommon() async {
   unawaited(DefaultStablecoinManager.refreshFromServer());
 
   DeepLinkHandler.initListener();
+  // Firebase Analytics (GA4). Soft-fails until real GoogleService configs are installed.
+  await FirebaseAnalyticsService.instance.init();
   StartupTime.printElapsed('main_common_ready');
 }
 
@@ -731,7 +735,11 @@ class _MyAppState extends State<MyApp> {
         navigatorKey: navigatorKey,
         title: appConfig.appDisplayName,
         debugShowCheckedModeBanner: true,
-        navigatorObservers: [routeObserver, otelRouteObserver],
+        navigatorObservers: [
+          routeObserver,
+          otelRouteObserver,
+          analyticsRouteObserver,
+        ],
         theme: ThemeData(useMaterial3: false).copyWith(
             extensions: <ThemeExtension<dynamic>>[
               GradientTheme(primaryGradient: AppThemeConfig.gradient),

@@ -5,6 +5,9 @@ buildscript {
 
     ext.kotlin_version = '2.1.0'
     repositories {
+        // Prefer Aliyun mirrors — dl.google.com TLS often fails in CN networks
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
     }
@@ -26,6 +29,7 @@ allprojects {
 
     repositories {
         maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
         mavenLocal()
@@ -60,6 +64,29 @@ allprojects {
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+// firebase_* plugins declare their own buildscript { google() } and can fail
+// when dl.google.com handshake drops; inject Aliyun mirrors first, and force
+// the already-cached root AGP instead of resolving AGP 8.1.4 from Google.
+subprojects { sub ->
+    sub.buildscript {
+        repositories {
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            google()
+            mavenCentral()
+        }
+        configurations.classpath {
+            resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == 'com.android.tools.build' &&
+                        details.requested.name == 'gradle') {
+                    details.useVersion('8.9.1')
+                    details.because('Reuse root AGP; avoid firebase plugin AGP 8.1.4 download')
+                }
+            }
+        }
+    }
 }
 
 // Fix old Flutter plugins for AGP 8+ / JDK 17 (namespace, compileSdk, JVM target).

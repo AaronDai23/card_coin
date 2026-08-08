@@ -101,6 +101,9 @@ dependencies:
   appsflyer_sdk: 6.14.3
   flutter_dotenv: ^5.1.0
   google_api_availability: ^5.0.0
+  # Google Analytics (GA4) via Firebase — iOS + Android
+  firebase_core: ^3.8.1
+  firebase_analytics: ^11.3.6
   # is_lock_screen2: ^2.0.1
   reown_walletkit: 1.0.0
   get_it: ^7.7.0
@@ -205,6 +208,9 @@ flutter:
 dependency_overrides:
   flutter_spinkit: 5.2.1
   win32: ^5.8.0
+  # firebase_core_web needs web ^1.0; reown_walletkit 1.0.0 pulls web ^0.5 via web_socket_channel
+  web: ^1.0.0
+  web_socket_channel: ^3.0.1
 
 flutter_intl:
   enabled: true

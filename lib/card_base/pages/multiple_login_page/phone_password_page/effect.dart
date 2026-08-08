@@ -1,5 +1,6 @@
 import 'dart:io';
-import 'package:appsflyer_sdk/appsflyer_sdk.dart';
+import 'package:card_coin/observability/firebase_analytics_service.dart';
+import 'package:card_coin/utils/appsflyer_safe.dart';
 import 'package:card_coin/utils/login_util.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -100,6 +101,7 @@ Future<void> _onLoginClick(
   if (result.isSuccess) {
     var userInfo = UserInfo.fromJson(result.data);
     LocalStorage.saveUserInfo(userInfo);
+    FirebaseAnalyticsService.instance.logLogin(method: 'phone_password');
 
     // 检查是否有需要跳转的目标页面
     Map<String, dynamic>? targetRoute =
@@ -114,7 +116,7 @@ Future<void> _onLoginClick(
             ctx.context, 'cardBaseMainPage', (route) => false,
             arguments: {'userInfo': userInfo});
 
-        AppsflyerSdk(null).logEvent(
+        AppsFlyerSafe.logEvent(
             'login_to_main_page', {'id': userInfo.customer!.customerCode});
       } else {
         await Navigator.pushNamed(
@@ -135,7 +137,7 @@ Future<void> _onLoginClick(
         arguments: {'userInfo': userInfo},
       );
 
-      AppsflyerSdk(null).logEvent(
+      AppsFlyerSafe.logEvent(
           'login_to_main_page', {'id': userInfo.customer!.customerCode});
     }
   } else {

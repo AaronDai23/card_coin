@@ -61,7 +61,6 @@ class _ShimmerBox extends StatefulWidget {
     required this.radius,
   });
 
-  final double? width;
   final double? height;
   final double radius;
 
@@ -95,7 +94,6 @@ class _ShimmerBoxState extends State<_ShimmerBox>
     return AnimatedBuilder(
       animation: _controller,
       child: Container(
-        width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
           color: BannerSkeletonPlaceholder._base,

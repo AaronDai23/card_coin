@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:card_coin/bean/address_book_info.dart';
 import 'package:card_coin/cache/sp_util.dart';
+import 'package:card_coin/observability/firebase_analytics_service.dart';
 import 'package:card_coin/utils/runnable/bean/compatibility_info.dart';
 import 'package:common_utils/common_utils.dart';
 import 'package:flutter/material.dart';
@@ -170,11 +171,18 @@ class LocalStorage {
   static saveUserInfo(UserInfo userInfo) {
     _userInfo = userInfo;
     save(userInfoKey, JsonUtil.encodeObj(userInfo));
+    final id = userInfo.customer?.customerCode;
+    if (id != null && id.isNotEmpty) {
+      // ignore: unawaited_futures
+      FirebaseAnalyticsService.instance.setUserId(id);
+    }
   }
 
   static cleanUserInfo() {
     LocalStorage.remove(LocalStorage.userInfoKey);
     _userInfo = null;
+    // ignore: unawaited_futures
+    FirebaseAnalyticsService.instance.setUserId(null);
   }
 
   /// 地址簿

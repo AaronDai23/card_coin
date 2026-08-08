@@ -155,5 +155,11 @@
 -keep class ch.qos.logback.** { *; }
 -dontwarn ch.qos.logback.**
 
+# Firebase Analytics
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+
 # ── R8 自动生成的缺失规则 ──
 -dontwarn org.slf4j.impl.StaticLoggerBinder

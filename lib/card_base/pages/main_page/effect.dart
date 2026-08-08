@@ -6,6 +6,7 @@ import 'package:card_coin/card_base/pages/main_page/tab_pages/tab_wallet_page/my
 import 'package:card_coin/global_store/store.dart';
 import 'package:card_coin/http/address.dart';
 import 'package:card_coin/http/result_data.dart';
+import 'package:card_coin/observability/firebase_analytics_service.dart';
 import 'package:card_coin/utils/deep_link_manager.dart';
 import 'package:card_coin/widget/app_config.dart';
 import 'package:card_coin/widget/custom_alert_dialog.dart';
@@ -112,6 +113,10 @@ Future<void> _onInit(Action action, Context<MainState> ctx) async {
     }
 
     ctx.dispatch(MainActionCreator.onLoadSuccess(list));
+    if (list.isNotEmpty) {
+      final first = list[ctx.state.currentIndex.clamp(0, list.length - 1)];
+      _logTabScreen(first);
+    }
   } else {
     final list = buildFallbackMainTabs();
 
@@ -125,6 +130,10 @@ Future<void> _onInit(Action action, Context<MainState> ctx) async {
     }
 
     ctx.dispatch(MainActionCreator.onLoadSuccess(list));
+    if (list.isNotEmpty) {
+      final first = list[ctx.state.currentIndex.clamp(0, list.length - 1)];
+      _logTabScreen(first);
+    }
   }
 }
 
@@ -153,17 +162,32 @@ Future<void> _onJump(Action action, Context<MainState> ctx) async {
           });
       ctx.state.tabController?.animateTo(homeIndex);
       ctx.dispatch(MainActionCreator.onApplyJump(homeIndex));
+      _logTabScreen(ctx.state.tabList[homeIndex]);
       return;
     }
     ctx.dispatch(MainActionCreator.onUpdateCardId(uid));
   }
 
   ctx.dispatch(MainActionCreator.onApplyJump(targetIndex));
+  _logTabScreen(targetTab);
 
   // When entering My Asset tab, force refresh so button layout follows latest pageFieldConfig cache.
   if (targetTab.target == 'myAssetPage') {
     eventBus.fire(RefreshMyAssetEvent());
   }
+}
+
+void _logTabScreen(PageCategoryItem tab) {
+  final screen = (tab.target?.isNotEmpty == true)
+      ? tab.target!
+      : (tab.code?.isNotEmpty == true ? tab.code! : 'main_tab');
+  FirebaseAnalyticsService.instance.logScreen(
+    screen,
+    parameters: {
+      if (tab.name != null && tab.name!.isNotEmpty) 'tab_name': tab.name!,
+      if (tab.type != null && tab.type!.isNotEmpty) 'tab_type': tab.type!,
+    },
+  );
 }
 
 bool _requiresCardUid(PageCategoryItem tab) {

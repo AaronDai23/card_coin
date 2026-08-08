@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:card_coin/pigeons/blockchain_platform_interface.dart';
+import 'package:card_coin/observability/firebase_analytics_service.dart';
 import 'package:card_coin/utils/login_util.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fish_redux/fish_redux.dart';
@@ -287,6 +288,7 @@ Future<void> _login(
   if (result.isSuccess) {
     var userInfo = UserInfo.fromJson(result.data);
     LocalStorage.saveUserInfo(userInfo);
+    FirebaseAnalyticsService.instance.logLogin(method: 'password');
     Navigator.pushNamedAndRemoveUntil(
         ctx.context, 'cardBaseMainPage', (route) => false,
         arguments: {'userInfo': userInfo});
@@ -374,6 +376,7 @@ Future<void> _faceLogin(Action action, Context<MultipleLoginState> ctx) async {
   if (result.isSuccess) {
     var userInfo = UserInfo.fromJson(result.data);
     LocalStorage.saveUserInfo(userInfo);
+    FirebaseAnalyticsService.instance.logLogin(method: 'biometrics');
     // 检查是否有需要跳转的目标页面
     Map<String, dynamic>? targetRoute =
         await LoginAuthUtil.getAndClearTargetRoute();

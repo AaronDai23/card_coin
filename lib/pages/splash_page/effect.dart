@@ -7,6 +7,7 @@ import 'package:card_coin/cache/bean/user_info_bean.dart';
 import 'package:card_coin/custom_widget/progress_dialog/progress_dialog.dart';
 import 'package:card_coin/global_store/action.dart';
 import 'package:card_coin/global_store/store.dart';
+import 'package:card_coin/utils/appsflyer_safe.dart';
 import 'package:card_coin/utils/startup_time.dart';
 import 'package:card_coin/utils/deep_link_manager.dart';
 import 'package:card_coin/app.dart' show navigatorKey;
@@ -299,6 +300,7 @@ void _onStartAppsFlyer(Action action, Context<SplashState> ctx) async {
     _appsflyerSdk = AppsflyerSdk(map);
      */
   var appsflyerSdk = AppsflyerSdk(options);
+  AppsFlyerSafe.bind(appsflyerSdk);
 
   /*
     Setting configuration to the SDK:

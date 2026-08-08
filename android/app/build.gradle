@@ -3,6 +3,7 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
     id "org.jetbrains.kotlin.android"
     id "com.squareup.wire"
+    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()

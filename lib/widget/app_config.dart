@@ -16,12 +16,18 @@ enum AppType{
 }
 
 class AppConfig extends InheritedWidget {
-  const AppConfig(
+  AppConfig(
       {super.key, required this.appDisplayName,
       required this.appInternalId,
         required this.stringResource,
       required Widget child})
-      : super(child: child);
+      : super(child: child) {
+    // Dio interceptors / early startup may run before Navigator has a context.
+    current = this;
+  }
+
+  /// Last configured app flavor. Safe for non-widget callers (e.g. interceptors).
+  static AppConfig? current;
 
   final String appDisplayName;
   final AppType appInternalId;
